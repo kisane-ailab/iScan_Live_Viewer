@@ -6,7 +6,7 @@ part of 'camera_viewmodel.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$cameraViewModelHash() => r'147a25a9192637c8817ba8139719ebdaeb85a8e8';
+String _$cameraViewModelHash() => r'517ea1c57ebb4a3545121c35bf63e51c1fb32e62';
 
 /// Copied from Dart SDK
 class _SystemHash {

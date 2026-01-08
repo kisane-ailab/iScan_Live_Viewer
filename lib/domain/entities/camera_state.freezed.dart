@@ -21,6 +21,7 @@ mixin _$CameraState {
   String get address => throw _privateConstructorUsedError;
   bool get isConnected => throw _privateConstructorUsedError;
   bool get isConnecting => throw _privateConstructorUsedError;
+  bool get isReceiveTimeout => throw _privateConstructorUsedError;
   Uint8List? get imageData => throw _privateConstructorUsedError;
   Map<String, dynamic>? get header => throw _privateConstructorUsedError;
   List<String> get logs => throw _privateConstructorUsedError;
@@ -28,6 +29,7 @@ mixin _$CameraState {
   double get receiveFps => throw _privateConstructorUsedError;
   double get renderFps => throw _privateConstructorUsedError;
   String? get error => throw _privateConstructorUsedError;
+  DateTime? get lastFrameTime => throw _privateConstructorUsedError;
 
   /// Create a copy of CameraState
   /// with the given fields replaced by the non-null parameter values.
@@ -48,6 +50,7 @@ abstract class $CameraStateCopyWith<$Res> {
     String address,
     bool isConnected,
     bool isConnecting,
+    bool isReceiveTimeout,
     Uint8List? imageData,
     Map<String, dynamic>? header,
     List<String> logs,
@@ -55,6 +58,7 @@ abstract class $CameraStateCopyWith<$Res> {
     double receiveFps,
     double renderFps,
     String? error,
+    DateTime? lastFrameTime,
   });
 }
 
@@ -77,6 +81,7 @@ class _$CameraStateCopyWithImpl<$Res, $Val extends CameraState>
     Object? address = null,
     Object? isConnected = null,
     Object? isConnecting = null,
+    Object? isReceiveTimeout = null,
     Object? imageData = freezed,
     Object? header = freezed,
     Object? logs = null,
@@ -84,6 +89,7 @@ class _$CameraStateCopyWithImpl<$Res, $Val extends CameraState>
     Object? receiveFps = null,
     Object? renderFps = null,
     Object? error = freezed,
+    Object? lastFrameTime = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -102,6 +108,10 @@ class _$CameraStateCopyWithImpl<$Res, $Val extends CameraState>
             isConnecting: null == isConnecting
                 ? _value.isConnecting
                 : isConnecting // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            isReceiveTimeout: null == isReceiveTimeout
+                ? _value.isReceiveTimeout
+                : isReceiveTimeout // ignore: cast_nullable_to_non_nullable
                       as bool,
             imageData: freezed == imageData
                 ? _value.imageData
@@ -131,6 +141,10 @@ class _$CameraStateCopyWithImpl<$Res, $Val extends CameraState>
                 ? _value.error
                 : error // ignore: cast_nullable_to_non_nullable
                       as String?,
+            lastFrameTime: freezed == lastFrameTime
+                ? _value.lastFrameTime
+                : lastFrameTime // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
           )
           as $Val,
     );
@@ -151,6 +165,7 @@ abstract class _$$CameraStateImplCopyWith<$Res>
     String address,
     bool isConnected,
     bool isConnecting,
+    bool isReceiveTimeout,
     Uint8List? imageData,
     Map<String, dynamic>? header,
     List<String> logs,
@@ -158,6 +173,7 @@ abstract class _$$CameraStateImplCopyWith<$Res>
     double receiveFps,
     double renderFps,
     String? error,
+    DateTime? lastFrameTime,
   });
 }
 
@@ -179,6 +195,7 @@ class __$$CameraStateImplCopyWithImpl<$Res>
     Object? address = null,
     Object? isConnected = null,
     Object? isConnecting = null,
+    Object? isReceiveTimeout = null,
     Object? imageData = freezed,
     Object? header = freezed,
     Object? logs = null,
@@ -186,6 +203,7 @@ class __$$CameraStateImplCopyWithImpl<$Res>
     Object? receiveFps = null,
     Object? renderFps = null,
     Object? error = freezed,
+    Object? lastFrameTime = freezed,
   }) {
     return _then(
       _$CameraStateImpl(
@@ -204,6 +222,10 @@ class __$$CameraStateImplCopyWithImpl<$Res>
         isConnecting: null == isConnecting
             ? _value.isConnecting
             : isConnecting // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isReceiveTimeout: null == isReceiveTimeout
+            ? _value.isReceiveTimeout
+            : isReceiveTimeout // ignore: cast_nullable_to_non_nullable
                   as bool,
         imageData: freezed == imageData
             ? _value.imageData
@@ -233,6 +255,10 @@ class __$$CameraStateImplCopyWithImpl<$Res>
             ? _value.error
             : error // ignore: cast_nullable_to_non_nullable
                   as String?,
+        lastFrameTime: freezed == lastFrameTime
+            ? _value.lastFrameTime
+            : lastFrameTime // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
       ),
     );
   }
@@ -246,6 +272,7 @@ class _$CameraStateImpl implements _CameraState {
     required this.address,
     this.isConnected = false,
     this.isConnecting = false,
+    this.isReceiveTimeout = false,
     this.imageData,
     final Map<String, dynamic>? header,
     final List<String> logs = const [],
@@ -253,6 +280,7 @@ class _$CameraStateImpl implements _CameraState {
     this.receiveFps = 0.0,
     this.renderFps = 0.0,
     this.error,
+    this.lastFrameTime,
   }) : _header = header,
        _logs = logs;
 
@@ -266,6 +294,9 @@ class _$CameraStateImpl implements _CameraState {
   @override
   @JsonKey()
   final bool isConnecting;
+  @override
+  @JsonKey()
+  final bool isReceiveTimeout;
   @override
   final Uint8List? imageData;
   final Map<String, dynamic>? _header;
@@ -298,10 +329,12 @@ class _$CameraStateImpl implements _CameraState {
   final double renderFps;
   @override
   final String? error;
+  @override
+  final DateTime? lastFrameTime;
 
   @override
   String toString() {
-    return 'CameraState(id: $id, address: $address, isConnected: $isConnected, isConnecting: $isConnecting, imageData: $imageData, header: $header, logs: $logs, frameCount: $frameCount, receiveFps: $receiveFps, renderFps: $renderFps, error: $error)';
+    return 'CameraState(id: $id, address: $address, isConnected: $isConnected, isConnecting: $isConnecting, isReceiveTimeout: $isReceiveTimeout, imageData: $imageData, header: $header, logs: $logs, frameCount: $frameCount, receiveFps: $receiveFps, renderFps: $renderFps, error: $error, lastFrameTime: $lastFrameTime)';
   }
 
   @override
@@ -315,6 +348,8 @@ class _$CameraStateImpl implements _CameraState {
                 other.isConnected == isConnected) &&
             (identical(other.isConnecting, isConnecting) ||
                 other.isConnecting == isConnecting) &&
+            (identical(other.isReceiveTimeout, isReceiveTimeout) ||
+                other.isReceiveTimeout == isReceiveTimeout) &&
             const DeepCollectionEquality().equals(other.imageData, imageData) &&
             const DeepCollectionEquality().equals(other._header, _header) &&
             const DeepCollectionEquality().equals(other._logs, _logs) &&
@@ -324,7 +359,9 @@ class _$CameraStateImpl implements _CameraState {
                 other.receiveFps == receiveFps) &&
             (identical(other.renderFps, renderFps) ||
                 other.renderFps == renderFps) &&
-            (identical(other.error, error) || other.error == error));
+            (identical(other.error, error) || other.error == error) &&
+            (identical(other.lastFrameTime, lastFrameTime) ||
+                other.lastFrameTime == lastFrameTime));
   }
 
   @override
@@ -334,6 +371,7 @@ class _$CameraStateImpl implements _CameraState {
     address,
     isConnected,
     isConnecting,
+    isReceiveTimeout,
     const DeepCollectionEquality().hash(imageData),
     const DeepCollectionEquality().hash(_header),
     const DeepCollectionEquality().hash(_logs),
@@ -341,6 +379,7 @@ class _$CameraStateImpl implements _CameraState {
     receiveFps,
     renderFps,
     error,
+    lastFrameTime,
   );
 
   /// Create a copy of CameraState
@@ -358,6 +397,7 @@ abstract class _CameraState implements CameraState {
     required final String address,
     final bool isConnected,
     final bool isConnecting,
+    final bool isReceiveTimeout,
     final Uint8List? imageData,
     final Map<String, dynamic>? header,
     final List<String> logs,
@@ -365,6 +405,7 @@ abstract class _CameraState implements CameraState {
     final double receiveFps,
     final double renderFps,
     final String? error,
+    final DateTime? lastFrameTime,
   }) = _$CameraStateImpl;
 
   @override
@@ -375,6 +416,8 @@ abstract class _CameraState implements CameraState {
   bool get isConnected;
   @override
   bool get isConnecting;
+  @override
+  bool get isReceiveTimeout;
   @override
   Uint8List? get imageData;
   @override
@@ -389,6 +432,8 @@ abstract class _CameraState implements CameraState {
   double get renderFps;
   @override
   String? get error;
+  @override
+  DateTime? get lastFrameTime;
 
   /// Create a copy of CameraState
   /// with the given fields replaced by the non-null parameter values.

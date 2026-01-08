@@ -11,6 +11,7 @@ class CameraState with _$CameraState {
     required String address,
     @Default(false) bool isConnected,
     @Default(false) bool isConnecting,
+    @Default(false) bool isReceiveTimeout,
     Uint8List? imageData,
     Map<String, dynamic>? header,
     @Default([]) List<String> logs,
@@ -18,5 +19,6 @@ class CameraState with _$CameraState {
     @Default(0.0) double receiveFps,
     @Default(0.0) double renderFps,
     String? error,
+    DateTime? lastFrameTime,
   }) = _CameraState;
 }

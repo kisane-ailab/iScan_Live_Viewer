@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/constants/app_constants.dart';
@@ -19,9 +20,13 @@ class CameraViewModel extends _$CameraViewModel {
   int _receiveThisSecond = 0;
   int _renderThisSecond = 0;
 
+  // 수신 타임아웃 체크용 타이머
+  Timer? _timeoutTimer;
+
   @override
   CameraState build(int id) {
     ref.onDispose(() {
+      _timeoutTimer?.cancel();
       disconnect();
     });
 
@@ -79,7 +84,12 @@ class CameraViewModel extends _$CameraViewModel {
       state = state.copyWith(
         isConnecting: false,
         isConnected: true,
+        isReceiveTimeout: false,
+        lastFrameTime: DateTime.now(),
       );
+
+      // 수신 타임아웃 체크 타이머 시작
+      _startTimeoutTimer();
     } catch (e) {
       _addLog('ERR', '연결 실패: $e');
       state = state.copyWith(
@@ -113,6 +123,8 @@ class CameraViewModel extends _$CameraViewModel {
       header: header,
       imageData: imageData,
       frameCount: state.frameCount + 1,
+      lastFrameTime: now,
+      isReceiveTimeout: false,
     );
 
     // 처음 5프레임만 로깅
@@ -127,8 +139,30 @@ class CameraViewModel extends _$CameraViewModel {
     state = state.copyWith(error: error);
   }
 
+  /// 수신 타임아웃 체크 타이머 시작
+  void _startTimeoutTimer() {
+    _timeoutTimer?.cancel();
+    _timeoutTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _checkReceiveTimeout(),
+    );
+  }
+
+  /// 수신 타임아웃 체크
+  void _checkReceiveTimeout() {
+    if (!state.isConnected || state.lastFrameTime == null) return;
+
+    final elapsed = DateTime.now().difference(state.lastFrameTime!).inSeconds;
+    if (elapsed >= receiveTimeoutSeconds && !state.isReceiveTimeout) {
+      _addLog('ERR', '수신 타임아웃 - ${receiveTimeoutSeconds}초 동안 프레임 없음');
+      state = state.copyWith(isReceiveTimeout: true);
+    }
+  }
+
   /// 카메라 연결 해제
   void disconnect() {
+    _timeoutTimer?.cancel();
+    _timeoutTimer = null;
     _repository?.disconnect();
     _repository = null;
 
@@ -139,8 +173,10 @@ class CameraViewModel extends _$CameraViewModel {
     state = state.copyWith(
       isConnected: false,
       isConnecting: false,
+      isReceiveTimeout: false,
       imageData: null,
       header: null,
+      lastFrameTime: null,
     );
   }
 

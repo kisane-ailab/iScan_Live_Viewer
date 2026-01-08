@@ -22,12 +22,19 @@ class CameraTile extends HookConsumerWidget {
     final isEditing = useState(false);
     final logFontSize = useState(9.0);
 
+    // 테두리 색상 결정: 수신 타임아웃 시 빨간색
+    final borderColor = camera.isReceiveTimeout
+        ? Colors.red.withOpacity(0.7)
+        : camera.isConnected
+            ? Colors.green.withOpacity(0.5)
+            : Colors.white24;
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF1A1A1A),
         border: Border.all(
-          color: camera.isConnected ? Colors.green.withOpacity(0.5) : Colors.white24,
-          width: 1,
+          color: borderColor,
+          width: camera.isReceiveTimeout ? 2 : 1,
         ),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -49,11 +56,53 @@ class CameraTile extends HookConsumerWidget {
                   child: Container(
                     color: Colors.black,
                     child: camera.imageData != null
-                        ? Image.memory(
-                            camera.imageData!,
-                            gaplessPlayback: true,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => _buildPlaceholder('디코딩 실패'),
+                        ? Stack(
+                            children: [
+                              Positioned.fill(
+                                child: Image.memory(
+                                  camera.imageData!,
+                                  gaplessPlayback: true,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => _buildPlaceholder('디코딩 실패'),
+                                ),
+                              ),
+                              // 수신 타임아웃 오버레이
+                              if (camera.isReceiveTimeout)
+                                Positioned.fill(
+                                  child: Container(
+                                    color: Colors.black54,
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.signal_wifi_off,
+                                            color: Colors.red,
+                                            size: 48,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          const Text(
+                                            '수신 불가',
+                                            style: TextStyle(
+                                              color: Colors.red,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '영상 데이터를 받지 못하고 있습니다',
+                                            style: TextStyle(
+                                              color: Colors.white.withOpacity(0.7),
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           )
                         : _buildPlaceholder(
                             camera.isConnecting
@@ -224,7 +273,14 @@ class CameraTile extends HookConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (camera.isConnected) ...[
+          if (camera.isReceiveTimeout) ...[
+            const Icon(Icons.warning_amber, color: Colors.red, size: 12),
+            const SizedBox(width: 4),
+            const Text(
+              '수신 불가',
+              style: TextStyle(color: Colors.red, fontSize: 10),
+            ),
+          ] else if (camera.isConnected) ...[
             const Icon(Icons.fiber_manual_record, color: Colors.red, size: 8),
             const SizedBox(width: 4),
             Text(

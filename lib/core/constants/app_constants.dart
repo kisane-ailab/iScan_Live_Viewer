@@ -11,3 +11,6 @@ const int maxLogCount = 50;
 
 /// FPS 업데이트 간격 (ms)
 const int fpsUpdateIntervalMs = 1000;
+
+/// 수신 타임아웃 (초) - 이 시간 동안 프레임이 없으면 수신 불가로 판단
+const int receiveTimeoutSeconds = 3;
