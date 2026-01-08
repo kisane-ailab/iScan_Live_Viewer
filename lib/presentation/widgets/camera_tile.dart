@@ -104,13 +104,15 @@ class CameraTile extends HookConsumerWidget {
                                 ),
                             ],
                           )
-                        : _buildPlaceholder(
-                            camera.isConnecting
-                                ? '연결 중...'
-                                : camera.isConnected
-                                    ? '대기 중...'
-                                    : '연결 안됨',
-                          ),
+                        : camera.isReceiveTimeout
+                            ? _buildTimeoutOverlay()
+                            : _buildPlaceholder(
+                                camera.isConnecting
+                                    ? '연결 중...'
+                                    : camera.isConnected
+                                        ? '대기 중...'
+                                        : '연결 안됨',
+                              ),
                   ),
                 ),
                 if (isLogExpanded)
@@ -259,6 +261,41 @@ class CameraTile extends HookConsumerWidget {
       child: Text(
         text,
         style: const TextStyle(color: Colors.white38, fontSize: 12),
+      ),
+    );
+  }
+
+  Widget _buildTimeoutOverlay() {
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.signal_wifi_off,
+              color: Colors.red,
+              size: 48,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '수신 불가',
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '영상 데이터를 받지 못하고 있습니다',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
