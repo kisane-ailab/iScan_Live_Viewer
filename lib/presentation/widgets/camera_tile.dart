@@ -55,16 +55,11 @@ class CameraTile extends HookConsumerWidget {
                 Positioned.fill(
                   child: Container(
                     color: Colors.black,
-                    child: camera.imageData != null
+                    child: camera.textureId != null || camera.imageData != null
                         ? Stack(
                             children: [
                               Positioned.fill(
-                                child: Image.memory(
-                                  camera.imageData!,
-                                  gaplessPlayback: true,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (_, __, ___) => _buildPlaceholder('디코딩 실패'),
-                                ),
+                                child: _buildImageWidget(camera),
                               ),
                               // 수신 타임아웃 오버레이
                               if (camera.isReceiveTimeout)
@@ -256,6 +251,29 @@ class CameraTile extends HookConsumerWidget {
     );
   }
 
+  /// Native Texture 렌더링 (고속, 제로카피)
+  Widget _buildImageWidget(camera) {
+    // Native Texture가 있으면 Texture 위젯으로 고속 렌더링
+    if (camera.textureId != null) {
+      return Texture(
+        textureId: camera.textureId!,
+        filterQuality: FilterQuality.low, // 성능 우선
+      );
+    }
+
+    // fallback: Flutter 기본 이미지 디코더
+    if (camera.imageData != null) {
+      return Image.memory(
+        camera.imageData!,
+        gaplessPlayback: true,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => _buildPlaceholder('디코딩 실패'),
+      );
+    }
+
+    return _buildPlaceholder('이미지 없음');
+  }
+
   Widget _buildPlaceholder(String text) {
     return Center(
       child: Text(
@@ -318,6 +336,19 @@ class CameraTile extends HookConsumerWidget {
               style: TextStyle(color: Colors.red, fontSize: 10),
             ),
           ] else if (camera.isConnected) ...[
+            // Native/Flutter 표시
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: camera.textureId != null ? Colors.green : Colors.orange,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: Text(
+                camera.textureId != null ? 'C++' : 'Dart',
+                style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 6),
             const Icon(Icons.fiber_manual_record, color: Colors.red, size: 8),
             const SizedBox(width: 4),
             Text(
@@ -357,12 +388,19 @@ class CameraTile extends HookConsumerWidget {
             style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold),
           ),
           Text(
-            '${header['brightness']?.toString().substring(0, 5) ?? ''}',
+            _formatBrightness(header['brightness']),
             style: const TextStyle(color: Colors.white54, fontSize: 9),
           ),
         ],
       ),
     );
+  }
+
+  String _formatBrightness(dynamic value) {
+    if (value == null) return '';
+    if (value is double) return value.toStringAsFixed(3);
+    final str = value.toString();
+    return str.length > 5 ? str.substring(0, 5) : str;
   }
 
   Widget _buildLogPanel(

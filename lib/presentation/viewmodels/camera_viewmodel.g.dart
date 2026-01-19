@@ -6,7 +6,7 @@ part of 'camera_viewmodel.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$cameraViewModelHash() => r'517ea1c57ebb4a3545121c35bf63e51c1fb32e62';
+String _$cameraViewModelHash() => r'ae1ab5b2242b192510ca5c3d85008ac491c3ac17';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -36,22 +36,22 @@ abstract class _$CameraViewModel
   CameraState build(int id);
 }
 
-/// 카메라 ViewModel - Presentation 로직 담당
+/// 카메라 ViewModel - Native C++ 렌더러 사용
 ///
 /// Copied from [CameraViewModel].
 @ProviderFor(CameraViewModel)
 const cameraViewModelProvider = CameraViewModelFamily();
 
-/// 카메라 ViewModel - Presentation 로직 담당
+/// 카메라 ViewModel - Native C++ 렌더러 사용
 ///
 /// Copied from [CameraViewModel].
 class CameraViewModelFamily extends Family<CameraState> {
-  /// 카메라 ViewModel - Presentation 로직 담당
+  /// 카메라 ViewModel - Native C++ 렌더러 사용
   ///
   /// Copied from [CameraViewModel].
   const CameraViewModelFamily();
 
-  /// 카메라 ViewModel - Presentation 로직 담당
+  /// 카메라 ViewModel - Native C++ 렌더러 사용
   ///
   /// Copied from [CameraViewModel].
   CameraViewModelProvider call(int id) {
@@ -80,12 +80,12 @@ class CameraViewModelFamily extends Family<CameraState> {
   String? get name => r'cameraViewModelProvider';
 }
 
-/// 카메라 ViewModel - Presentation 로직 담당
+/// 카메라 ViewModel - Native C++ 렌더러 사용
 ///
 /// Copied from [CameraViewModel].
 class CameraViewModelProvider
     extends AutoDisposeNotifierProviderImpl<CameraViewModel, CameraState> {
-  /// 카메라 ViewModel - Presentation 로직 담당
+  /// 카메라 ViewModel - Native C++ 렌더러 사용
   ///
   /// Copied from [CameraViewModel].
   CameraViewModelProvider(int id)

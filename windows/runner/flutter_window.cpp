@@ -2,7 +2,13 @@
 
 #include <optional>
 
+#include <flutter/plugin_registrar_windows.h>
 #include "flutter/generated_plugin_registrant.h"
+
+#ifdef NATIVE_VIDEO_ENABLED
+#include "native_video_api.g.h"
+#include "native_video_handler.h"
+#endif
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -25,6 +31,26 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+
+#ifdef NATIVE_VIDEO_ENABLED
+  // Initialize Native Video Handler for high-performance video streaming
+  // Get plugin registrar for texture and messenger access
+  auto registrar = flutter::PluginRegistrarManager::GetInstance()
+      ->GetRegistrar<flutter::PluginRegistrarWindows>(
+          flutter_controller_->engine()->GetRegistrarForPlugin("NativeVideoHandler"));
+
+  native_video_handler_ = std::make_unique<NativeVideoHandler>(
+      registrar->texture_registrar(),
+      registrar->messenger());
+
+  // Set window handle for thread-safe callbacks
+  native_video_handler_->SetHwnd(GetHandle());
+
+  NativeVideoHostApi::SetUp(
+      registrar->messenger(),
+      native_video_handler_.get());
+#endif
+
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -65,6 +91,14 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;
+#ifdef NATIVE_VIDEO_ENABLED
+    case WM_NATIVE_VIDEO_FRAME:
+      if (native_video_handler_) {
+        auto* data = reinterpret_cast<FrameCallbackData*>(lparam);
+        native_video_handler_->ProcessFrameCallback(data);
+      }
+      return 0;
+#endif
   }
 
   return Win32Window::MessageHandler(hwnd, message, wparam, lparam);

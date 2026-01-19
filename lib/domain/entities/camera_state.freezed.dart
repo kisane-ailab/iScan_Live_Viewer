@@ -23,6 +23,8 @@ mixin _$CameraState {
   bool get isConnecting => throw _privateConstructorUsedError;
   bool get isReceiveTimeout => throw _privateConstructorUsedError;
   Uint8List? get imageData => throw _privateConstructorUsedError;
+  ui.Image? get decodedImage => throw _privateConstructorUsedError;
+  int? get textureId => throw _privateConstructorUsedError; // Native 텍스처 ID
   Map<String, dynamic>? get header => throw _privateConstructorUsedError;
   List<String> get logs => throw _privateConstructorUsedError;
   int get frameCount => throw _privateConstructorUsedError;
@@ -52,6 +54,8 @@ abstract class $CameraStateCopyWith<$Res> {
     bool isConnecting,
     bool isReceiveTimeout,
     Uint8List? imageData,
+    ui.Image? decodedImage,
+    int? textureId,
     Map<String, dynamic>? header,
     List<String> logs,
     int frameCount,
@@ -83,6 +87,8 @@ class _$CameraStateCopyWithImpl<$Res, $Val extends CameraState>
     Object? isConnecting = null,
     Object? isReceiveTimeout = null,
     Object? imageData = freezed,
+    Object? decodedImage = freezed,
+    Object? textureId = freezed,
     Object? header = freezed,
     Object? logs = null,
     Object? frameCount = null,
@@ -117,6 +123,14 @@ class _$CameraStateCopyWithImpl<$Res, $Val extends CameraState>
                 ? _value.imageData
                 : imageData // ignore: cast_nullable_to_non_nullable
                       as Uint8List?,
+            decodedImage: freezed == decodedImage
+                ? _value.decodedImage
+                : decodedImage // ignore: cast_nullable_to_non_nullable
+                      as ui.Image?,
+            textureId: freezed == textureId
+                ? _value.textureId
+                : textureId // ignore: cast_nullable_to_non_nullable
+                      as int?,
             header: freezed == header
                 ? _value.header
                 : header // ignore: cast_nullable_to_non_nullable
@@ -167,6 +181,8 @@ abstract class _$$CameraStateImplCopyWith<$Res>
     bool isConnecting,
     bool isReceiveTimeout,
     Uint8List? imageData,
+    ui.Image? decodedImage,
+    int? textureId,
     Map<String, dynamic>? header,
     List<String> logs,
     int frameCount,
@@ -197,6 +213,8 @@ class __$$CameraStateImplCopyWithImpl<$Res>
     Object? isConnecting = null,
     Object? isReceiveTimeout = null,
     Object? imageData = freezed,
+    Object? decodedImage = freezed,
+    Object? textureId = freezed,
     Object? header = freezed,
     Object? logs = null,
     Object? frameCount = null,
@@ -231,6 +249,14 @@ class __$$CameraStateImplCopyWithImpl<$Res>
             ? _value.imageData
             : imageData // ignore: cast_nullable_to_non_nullable
                   as Uint8List?,
+        decodedImage: freezed == decodedImage
+            ? _value.decodedImage
+            : decodedImage // ignore: cast_nullable_to_non_nullable
+                  as ui.Image?,
+        textureId: freezed == textureId
+            ? _value.textureId
+            : textureId // ignore: cast_nullable_to_non_nullable
+                  as int?,
         header: freezed == header
             ? _value._header
             : header // ignore: cast_nullable_to_non_nullable
@@ -274,6 +300,8 @@ class _$CameraStateImpl implements _CameraState {
     this.isConnecting = false,
     this.isReceiveTimeout = false,
     this.imageData,
+    this.decodedImage,
+    this.textureId,
     final Map<String, dynamic>? header,
     final List<String> logs = const [],
     this.frameCount = 0,
@@ -299,7 +327,13 @@ class _$CameraStateImpl implements _CameraState {
   final bool isReceiveTimeout;
   @override
   final Uint8List? imageData;
+  @override
+  final ui.Image? decodedImage;
+  @override
+  final int? textureId;
+  // Native 텍스처 ID
   final Map<String, dynamic>? _header;
+  // Native 텍스처 ID
   @override
   Map<String, dynamic>? get header {
     final value = _header;
@@ -334,7 +368,7 @@ class _$CameraStateImpl implements _CameraState {
 
   @override
   String toString() {
-    return 'CameraState(id: $id, address: $address, isConnected: $isConnected, isConnecting: $isConnecting, isReceiveTimeout: $isReceiveTimeout, imageData: $imageData, header: $header, logs: $logs, frameCount: $frameCount, receiveFps: $receiveFps, renderFps: $renderFps, error: $error, lastFrameTime: $lastFrameTime)';
+    return 'CameraState(id: $id, address: $address, isConnected: $isConnected, isConnecting: $isConnecting, isReceiveTimeout: $isReceiveTimeout, imageData: $imageData, decodedImage: $decodedImage, textureId: $textureId, header: $header, logs: $logs, frameCount: $frameCount, receiveFps: $receiveFps, renderFps: $renderFps, error: $error, lastFrameTime: $lastFrameTime)';
   }
 
   @override
@@ -351,6 +385,10 @@ class _$CameraStateImpl implements _CameraState {
             (identical(other.isReceiveTimeout, isReceiveTimeout) ||
                 other.isReceiveTimeout == isReceiveTimeout) &&
             const DeepCollectionEquality().equals(other.imageData, imageData) &&
+            (identical(other.decodedImage, decodedImage) ||
+                other.decodedImage == decodedImage) &&
+            (identical(other.textureId, textureId) ||
+                other.textureId == textureId) &&
             const DeepCollectionEquality().equals(other._header, _header) &&
             const DeepCollectionEquality().equals(other._logs, _logs) &&
             (identical(other.frameCount, frameCount) ||
@@ -373,6 +411,8 @@ class _$CameraStateImpl implements _CameraState {
     isConnecting,
     isReceiveTimeout,
     const DeepCollectionEquality().hash(imageData),
+    decodedImage,
+    textureId,
     const DeepCollectionEquality().hash(_header),
     const DeepCollectionEquality().hash(_logs),
     frameCount,
@@ -399,6 +439,8 @@ abstract class _CameraState implements CameraState {
     final bool isConnecting,
     final bool isReceiveTimeout,
     final Uint8List? imageData,
+    final ui.Image? decodedImage,
+    final int? textureId,
     final Map<String, dynamic>? header,
     final List<String> logs,
     final int frameCount,
@@ -420,6 +462,10 @@ abstract class _CameraState implements CameraState {
   bool get isReceiveTimeout;
   @override
   Uint8List? get imageData;
+  @override
+  ui.Image? get decodedImage;
+  @override
+  int? get textureId; // Native 텍스처 ID
   @override
   Map<String, dynamic>? get header;
   @override
