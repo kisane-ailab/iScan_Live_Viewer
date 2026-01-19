@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'camera_state.freezed.dart';
@@ -13,6 +14,8 @@ class CameraState with _$CameraState {
     @Default(false) bool isConnecting,
     @Default(false) bool isReceiveTimeout,
     Uint8List? imageData,
+    ui.Image? decodedImage,
+    int? textureId, // Native 텍스처 ID
     Map<String, dynamic>? header,
     @Default([]) List<String> logs,
     @Default(0) int frameCount,

@@ -1,32 +1,34 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/providers/logger_provider.dart';
 import '../../domain/entities/camera_state.dart';
-import '../../domain/repositories/camera_repository.dart';
-import '../../infrastructure/zmq/zmq_client.dart';
-import '../../data/repositories/camera_repository_impl.dart';
+import '../../infrastructure/native/native_video_renderer.dart';
+import '../../infrastructure/native/generated/native_video_api.g.dart';
 
 part 'camera_viewmodel.g.dart';
 
-/// 카메라 ViewModel - Presentation 로직 담당
+/// 카메라 ViewModel - Native C++ 렌더러 사용
 @riverpod
 class CameraViewModel extends _$CameraViewModel {
-  CameraRepository? _repository;
+  NativeVideoRenderer? _renderer;
 
   // FPS 측정용
   DateTime? _lastSecond;
   int _receiveThisSecond = 0;
-  int _renderThisSecond = 0;
+  int _lastFrameCount = 0;
 
   // 수신 타임아웃 체크용 타이머
   Timer? _timeoutTimer;
+
+  // 프레임 정보 폴링 타이머
+  Timer? _pollTimer;
 
   @override
   CameraState build(int id) {
     ref.onDispose(() {
       _timeoutTimer?.cancel();
+      _pollTimer?.cancel();
       disconnect();
     });
 
@@ -69,27 +71,38 @@ class CameraViewModel extends _$CameraViewModel {
     _addLog('INFO', '연결 시작: ${state.address}');
 
     try {
-      // 각 카메라마다 새 ZmqClient 인스턴스 생성
       final logger = ref.read(loggerProvider);
-      final zmqClient = ZmqClient(logger);
-      _repository = CameraRepositoryImpl(zmqClient);
 
-      await _repository!.connect(
-        state.address,
-        onFrame: _onFrameReceived,
-        onError: _onError,
-      );
+      // Create native renderer
+      _renderer = NativeVideoRenderer();
 
-      _addLog('INFO', '연결됨 - 데이터 대기중');
+      // Set error callback (frame info is now polled)
+      _renderer!.onErrorCallback = _onError;
+
+      // Reset frame count tracking
+      _lastFrameCount = 0;
+
+      // Initialize and get texture ID
+      final textureId = await _renderer!.initialize(state.id);
+      _addLog('INFO', '텍스처 초기화 완료: $textureId');
+
+      // Start ZMQ stream
+      await _renderer!.startStream(state.address);
+
+      _addLog('INFO', '네이티브 스트림 시작됨');
       state = state.copyWith(
         isConnecting: false,
         isConnected: true,
         isReceiveTimeout: false,
         lastFrameTime: DateTime.now(),
+        textureId: textureId,
       );
 
       // 수신 타임아웃 체크 타이머 시작
       _startTimeoutTimer();
+
+      // 프레임 정보 폴링 타이머 시작
+      _startPollTimer();
     } catch (e) {
       _addLog('ERR', '연결 실패: $e');
       state = state.copyWith(
@@ -100,40 +113,66 @@ class CameraViewModel extends _$CameraViewModel {
     }
   }
 
-  /// 프레임 수신 콜백
-  void _onFrameReceived(Map<String, dynamic> header, Uint8List imageData) {
-    final now = DateTime.now();
-    _receiveThisSecond++;
-
-    // FPS 계산
-    if (_lastSecond == null) {
-      _lastSecond = now;
-    } else if (now.difference(_lastSecond!).inMilliseconds >= fpsUpdateIntervalMs) {
-      state = state.copyWith(
-        receiveFps: _receiveThisSecond.toDouble(),
-        renderFps: _renderThisSecond.toDouble(),
-      );
-      _receiveThisSecond = 0;
-      _renderThisSecond = 0;
-      _lastSecond = now;
-    }
-
-    _renderThisSecond++;
-    state = state.copyWith(
-      header: header,
-      imageData: imageData,
-      frameCount: state.frameCount + 1,
-      lastFrameTime: now,
-      isReceiveTimeout: false,
+  /// 프레임 정보 폴링 타이머 시작
+  void _startPollTimer() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(
+      const Duration(milliseconds: 100),
+      (_) => _pollFrameInfo(),
     );
+  }
 
-    // 처음 5프레임만 로깅
-    if (state.frameCount <= 5) {
-      _addLog('FRAME', '#${state.frameCount} - ${imageData.length} bytes');
+  /// 프레임 정보 폴링
+  Future<void> _pollFrameInfo() async {
+    if (_renderer == null || !state.isConnected) return;
+
+    try {
+      final info = await _renderer!.getFrameInfo();
+      if (info == null) return;
+
+      // 새 프레임이 있는 경우에만 업데이트
+      if (info.frameCount == _lastFrameCount) return;
+
+      final now = DateTime.now();
+      final framesDelta = info.frameCount - _lastFrameCount;
+      _lastFrameCount = info.frameCount;
+      _receiveThisSecond += framesDelta;
+
+      // FPS 계산
+      if (_lastSecond == null) {
+        _lastSecond = now;
+      } else if (now.difference(_lastSecond!).inMilliseconds >= fpsUpdateIntervalMs) {
+        state = state.copyWith(
+          receiveFps: _receiveThisSecond.toDouble(),
+        );
+        _receiveThisSecond = 0;
+        _lastSecond = now;
+      }
+
+      state = state.copyWith(
+        header: {
+          'header': {
+            'cam_idx': info.camIdx,
+            'cam_num': info.camNum,
+            'brightness': info.brightness,
+            'motion': info.motion,
+          }
+        },
+        frameCount: info.frameCount,
+        lastFrameTime: now,
+        isReceiveTimeout: false,
+      );
+
+      // 처음 5프레임만 로깅
+      if (info.frameCount <= 5) {
+        _addLog('FRAME', '#${info.frameCount} received');
+      }
+    } catch (e) {
+      // 폴링 중 에러는 무시 (연결 끊김 등)
     }
   }
 
-  /// 에러 콜백
+  /// 에러 콜백 (from native - currently unused due to threading issues)
   void _onError(String error) {
     _addLog('ERR', '스트림 에러: $error');
     state = state.copyWith(error: error);
@@ -160,11 +199,21 @@ class CameraViewModel extends _$CameraViewModel {
   }
 
   /// 카메라 연결 해제
-  void disconnect() {
+  Future<void> disconnect() async {
     _timeoutTimer?.cancel();
     _timeoutTimer = null;
-    _repository?.disconnect();
-    _repository = null;
+    _pollTimer?.cancel();
+    _pollTimer = null;
+
+    if (_renderer != null) {
+      try {
+        await _renderer!.stopStream();
+        await _renderer!.dispose();
+      } catch (e) {
+        // Ignore errors during cleanup
+      }
+      _renderer = null;
+    }
 
     if (state.isConnected) {
       _addLog('INFO', '연결 해제됨');
@@ -175,8 +224,10 @@ class CameraViewModel extends _$CameraViewModel {
       isConnecting: false,
       isReceiveTimeout: false,
       imageData: null,
+      decodedImage: null,
       header: null,
       lastFrameTime: null,
+      textureId: null,
     );
   }
 

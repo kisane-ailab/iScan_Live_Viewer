@@ -8,6 +8,10 @@
 
 #include "win32_window.h"
 
+#ifdef NATIVE_VIDEO_ENABLED
+class NativeVideoHandler;
+#endif
+
 // A window that does nothing but host a Flutter view.
 class FlutterWindow : public Win32Window {
  public:
@@ -28,6 +32,11 @@ class FlutterWindow : public Win32Window {
 
   // The Flutter instance hosted by this window.
   std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
+
+#ifdef NATIVE_VIDEO_ENABLED
+  // Native video handler for high-performance video streaming
+  std::unique_ptr<NativeVideoHandler> native_video_handler_;
+#endif
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_
