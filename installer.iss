@@ -10,6 +10,8 @@ Compression=lzma2
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+UninstallDisplayIcon={app}\iScan Live Viewer.exe
+SetupIconFile=windows\runner\resources\app_icon.ico
 
 [Files]
 Source: "build\windows\x64\runner\Release\iscan_live_viewer.exe"; DestDir: "{app}"; DestName: "iScan Live Viewer.exe"; Flags: ignoreversion
