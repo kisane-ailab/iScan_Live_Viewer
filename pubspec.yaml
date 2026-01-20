@@ -43,6 +43,9 @@ dev_dependencies:
   # Pigeon for native code generation
   pigeon: ^22.7.4
 
+  # App Icon
+  flutter_launcher_icons: ^0.14.3
+
   # Code Generation
   build_runner: ^2.4.15
   riverpod_generator: ^2.6.4
@@ -51,3 +54,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+flutter_launcher_icons:
+  windows:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    icon_size: 256
