@@ -6,7 +6,7 @@ part of 'camera_viewmodel.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$cameraViewModelHash() => r'ae1ab5b2242b192510ca5c3d85008ac491c3ac17';
+String _$cameraViewModelHash() => r'3306caf6810f7a83d4184789f269695b1284987e';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -313,9 +313,9 @@ class _CameraLogExpandedProviderElement
   int get id => (origin as CameraLogExpandedProvider).id;
 }
 
-String _$cameraCountHash() => r'c3b92ab3c0298dc0e582fd2af164ce6be528774a';
+String _$cameraCountHash() => r'0c0e63fb5a095730c2836fd9b83c0bd96c2f0252';
 
-/// 화면에 표시할 카메라 갯수 (1, 2, 4)
+/// 화면에 표시할 카메라 갯수 (1, 2, 4) - 로컬 저장
 ///
 /// Copied from [CameraCount].
 @ProviderFor(CameraCount)

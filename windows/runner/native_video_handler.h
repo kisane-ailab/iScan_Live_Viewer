@@ -57,6 +57,10 @@ struct VideoStream {
   std::string current_cam_num;
   double current_brightness = 0.0;
   bool current_motion = false;
+  int current_bbox_x = 0;
+  int current_bbox_y = 0;
+  int current_bbox_w = 0;
+  int current_bbox_h = 0;
 };
 
 class NativeVideoHandler : public NativeVideoHostApi {

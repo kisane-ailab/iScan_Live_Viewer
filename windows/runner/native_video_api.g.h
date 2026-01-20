@@ -71,6 +71,10 @@ class FrameInfo {
     const std::string* cam_num,
     const double* brightness,
     const bool* motion,
+    const int64_t* bbox_x,
+    const int64_t* bbox_y,
+    const int64_t* bbox_w,
+    const int64_t* bbox_h,
     int64_t frame_count);
 
   const std::string* cam_idx() const;
@@ -89,6 +93,22 @@ class FrameInfo {
   void set_motion(const bool* value_arg);
   void set_motion(bool value_arg);
 
+  const int64_t* bbox_x() const;
+  void set_bbox_x(const int64_t* value_arg);
+  void set_bbox_x(int64_t value_arg);
+
+  const int64_t* bbox_y() const;
+  void set_bbox_y(const int64_t* value_arg);
+  void set_bbox_y(int64_t value_arg);
+
+  const int64_t* bbox_w() const;
+  void set_bbox_w(const int64_t* value_arg);
+  void set_bbox_w(int64_t value_arg);
+
+  const int64_t* bbox_h() const;
+  void set_bbox_h(const int64_t* value_arg);
+  void set_bbox_h(int64_t value_arg);
+
   int64_t frame_count() const;
   void set_frame_count(int64_t value_arg);
 
@@ -103,6 +123,10 @@ class FrameInfo {
   std::optional<std::string> cam_num_;
   std::optional<double> brightness_;
   std::optional<bool> motion_;
+  std::optional<int64_t> bbox_x_;
+  std::optional<int64_t> bbox_y_;
+  std::optional<int64_t> bbox_w_;
+  std::optional<int64_t> bbox_h_;
   int64_t frame_count_;
 
 };

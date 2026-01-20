@@ -13,6 +13,10 @@ class FrameInfo {
     this.camNum,
     this.brightness,
     this.motion,
+    this.bboxX,
+    this.bboxY,
+    this.bboxW,
+    this.bboxH,
     required this.frameCount,
   });
 
@@ -20,6 +24,10 @@ class FrameInfo {
   String? camNum;
   double? brightness;
   bool? motion;
+  int? bboxX;
+  int? bboxY;
+  int? bboxW;
+  int? bboxH;
   int frameCount;
 }
 

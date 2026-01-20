@@ -11,19 +11,66 @@
 
 namespace {
 
-// Simple JSON value extractor for our specific header format
-std::string ExtractJsonString(const std::string& json, const std::string& key) {
-  std::string search = "\"" + key + "\":";
+// Extract the inner content of a JSON object for a given key
+// e.g., for {"header": {"cam_idx": "top_1"}}, ExtractJsonObject(json, "header") returns {"cam_idx": "top_1"}
+std::string ExtractJsonObject(const std::string& json, const std::string& key) {
+  std::string search = "\"" + key + "\"";
   size_t pos = json.find(search);
   if (pos == std::string::npos) return "";
 
-  pos += search.length();
-  while (pos < json.length() && (json[pos] == ' ' || json[pos] == '"')) pos++;
+  // Find the colon after the key
+  pos = json.find(':', pos + search.length());
+  if (pos == std::string::npos) return "";
+  pos++;
 
-  size_t end = pos;
-  while (end < json.length() && json[end] != '"' && json[end] != ',' && json[end] != '}') end++;
+  // Skip whitespace
+  while (pos < json.length() && (json[pos] == ' ' || json[pos] == '\t' || json[pos] == '\n' || json[pos] == '\r')) pos++;
 
-  return json.substr(pos, end - pos);
+  // Check if it's an object
+  if (pos >= json.length() || json[pos] != '{') return "";
+
+  // Find matching closing brace
+  size_t start = pos;
+  int brace_count = 1;
+  pos++;
+  while (pos < json.length() && brace_count > 0) {
+    if (json[pos] == '{') brace_count++;
+    else if (json[pos] == '}') brace_count--;
+    pos++;
+  }
+
+  return json.substr(start, pos - start);
+}
+
+// Simple JSON value extractor for our specific header format
+// Handles both quoted strings ("cam_idx": "top_1") and unquoted values ("brightness": 51.7)
+std::string ExtractJsonString(const std::string& json, const std::string& key) {
+  std::string search = "\"" + key + "\"";
+  size_t pos = json.find(search);
+  if (pos == std::string::npos) return "";
+
+  // Find the colon after the key
+  pos = json.find(':', pos + search.length());
+  if (pos == std::string::npos) return "";
+  pos++;
+
+  // Skip whitespace
+  while (pos < json.length() && (json[pos] == ' ' || json[pos] == '\t')) pos++;
+
+  if (pos >= json.length()) return "";
+
+  // Check if value is a quoted string
+  if (json[pos] == '"') {
+    pos++;  // Skip opening quote
+    size_t end = pos;
+    while (end < json.length() && json[end] != '"') end++;
+    return json.substr(pos, end - pos);
+  } else {
+    // Unquoted value (number, boolean, null)
+    size_t end = pos;
+    while (end < json.length() && json[end] != ',' && json[end] != '}' && json[end] != ' ' && json[end] != '\n') end++;
+    return json.substr(pos, end - pos);
+  }
 }
 
 double ExtractJsonDouble(const std::string& json, const std::string& key) {
@@ -39,6 +86,16 @@ double ExtractJsonDouble(const std::string& json, const std::string& key) {
 bool ExtractJsonBool(const std::string& json, const std::string& key) {
   std::string value = ExtractJsonString(json, key);
   return value == "true";
+}
+
+int ExtractJsonInt(const std::string& json, const std::string& key) {
+  std::string value = ExtractJsonString(json, key);
+  if (value.empty()) return 0;
+  try {
+    return std::stoi(value);
+  } catch (...) {
+    return 0;
+  }
 }
 
 }  // namespace
@@ -71,25 +128,71 @@ void NativeVideoHandler::ProcessFrameCallback(FrameCallbackData* data) {
 }
 
 NativeVideoHandler::~NativeVideoHandler() {
-  // Get all stream keys first
-  std::vector<int64_t> keys;
+  OutputDebugStringA("[NativeVideoHandler] Destructor called\n");
+
+  // Step 1: Stop all streams first (set is_running = false for all)
   {
     std::lock_guard<std::mutex> lock(streams_mutex_);
     for (auto& pair : streams_) {
-      keys.push_back(pair.first);
+      pair.second->is_running = false;
     }
   }
 
-  // Clean up all streams (CleanupStream manages its own locking)
-  for (int64_t key : keys) {
-    CleanupStream(key);
-  }
-
-  // Remove all streams
+  // Step 2: Close all ZMQ sockets to unblock receive threads
   {
     std::lock_guard<std::mutex> lock(streams_mutex_);
+    for (auto& pair : streams_) {
+      auto& stream = pair.second;
+      if (stream->zmq_socket) {
+        zmq_close(stream->zmq_socket);
+        stream->zmq_socket = nullptr;
+      }
+    }
+  }
+
+  // Step 3: Join all threads (they should exit quickly now)
+  std::vector<std::thread> threads_to_join;
+  {
+    std::lock_guard<std::mutex> lock(streams_mutex_);
+    for (auto& pair : streams_) {
+      auto& stream = pair.second;
+      if (stream->receive_thread.joinable()) {
+        threads_to_join.push_back(std::move(stream->receive_thread));
+      }
+    }
+  }
+
+  for (auto& t : threads_to_join) {
+    if (t.joinable()) {
+      t.join();
+    }
+  }
+
+  // Step 4: Clean up remaining resources
+  {
+    std::lock_guard<std::mutex> lock(streams_mutex_);
+    for (auto& pair : streams_) {
+      auto& stream = pair.second;
+
+      if (stream->zmq_context) {
+        zmq_ctx_destroy(stream->zmq_context);
+        stream->zmq_context = nullptr;
+      }
+
+      if (stream->texture_id >= 0 && texture_registrar_) {
+        texture_registrar_->UnregisterTexture(stream->texture_id);
+        stream->texture_id = -1;
+      }
+
+      if (stream->tj_handle) {
+        tjDestroy(stream->tj_handle);
+        stream->tj_handle = nullptr;
+      }
+    }
     streams_.clear();
   }
+
+  OutputDebugStringA("[NativeVideoHandler] Destructor completed\n");
 }
 
 ErrorOr<int64_t> NativeVideoHandler::Initialize(int64_t texture_key) {
@@ -224,23 +327,33 @@ void NativeVideoHandler::ReceiveLoop(int64_t texture_key) {
 
   std::vector<uint8_t> recv_buffer(2 * 1024 * 1024);  // 2MB buffer
 
-  while (stream->is_running) {
-    int size = zmq_recv(stream->zmq_socket, recv_buffer.data(), recv_buffer.size(), 0);
+  while (stream->is_running && stream->zmq_socket != nullptr) {
+    void* socket = stream->zmq_socket;
+    if (socket == nullptr) break;
+
+    int size = zmq_recv(socket, recv_buffer.data(), recv_buffer.size(), 0);
 
     if (size > 0) {
       // Parse header length (first 4 bytes, little-endian)
       uint32_t header_len;
       memcpy(&header_len, recv_buffer.data(), sizeof(header_len));
 
+      // Debug: print header_len
+      if (stream->frame_count < 3) {
+        char dbg[128];
+        sprintf_s(dbg, "[NativeVideoHandler] header_len=%u, msg_size=%d\n", header_len, size);
+        OutputDebugStringA(dbg);
+      }
+
       // Validate header length
       if (header_len > 1024 * 1024) {
         // No JSON header, raw JPEG data
-        if (DecodeJpeg(stream, recv_buffer.data(), size)) {
+        if (stream->is_running && DecodeJpeg(stream, recv_buffer.data(), size)) {
           // Notify Flutter
-          texture_registrar_->MarkTextureFrameAvailable(stream->texture_id);
+          if (texture_registrar_ && stream->texture_id >= 0) {
+            texture_registrar_->MarkTextureFrameAvailable(stream->texture_id);
+          }
           ++stream->frame_count;
-
-          // Callback disabled for now - just update frame count
         }
       } else {
         // Parse JSON header
@@ -250,15 +363,20 @@ void NativeVideoHandler::ReceiveLoop(int64_t texture_key) {
         const uint8_t* jpeg_data = recv_buffer.data() + sizeof(header_len) + header_len;
         size_t jpeg_size = size - sizeof(header_len) - header_len;
 
-        if (DecodeJpeg(stream, jpeg_data, jpeg_size)) {
+        if (stream->is_running && DecodeJpeg(stream, jpeg_data, jpeg_size)) {
           // Notify Flutter that texture is updated
-          texture_registrar_->MarkTextureFrameAvailable(stream->texture_id);
+          if (texture_registrar_ && stream->texture_id >= 0) {
+            texture_registrar_->MarkTextureFrameAvailable(stream->texture_id);
+          }
           ++stream->frame_count;
-          // Callback disabled for now
         }
       }
     } else if (size == -1) {
       int err = zmq_errno();
+      if (err == ETERM || err == ENOTSOCK) {
+        // Socket was closed, exit the loop
+        break;
+      }
       if (err != EAGAIN) {  // EAGAIN is timeout, which is expected
         char errmsg[128];
         sprintf_s(errmsg, "[NativeVideoHandler] ZMQ recv error: %d for key: %lld\n", err, texture_key);
@@ -272,13 +390,59 @@ void NativeVideoHandler::ReceiveLoop(int64_t texture_key) {
 }
 
 void NativeVideoHandler::ParseHeader(VideoStream* stream, const uint8_t* data, uint32_t header_len) {
-  std::string json(reinterpret_cast<const char*>(data), header_len);
+  // Safety check: skip if no data
+  if (data == nullptr || header_len == 0 || header_len > 10000) {
+    return;
+  }
 
-  // Extract header fields from nested structure: {"header": {...}}
-  stream->current_cam_idx = ExtractJsonString(json, "cam_idx");
-  stream->current_cam_num = ExtractJsonString(json, "cam_num");
-  stream->current_brightness = ExtractJsonDouble(json, "brightness");
-  stream->current_motion = ExtractJsonBool(json, "motion");
+  try {
+    std::string json(reinterpret_cast<const char*>(data), header_len);
+
+    // Debug: print first 200 chars of JSON (first frame only)
+    if (stream->frame_count == 0) {
+      char debug_msg[512];
+      sprintf_s(debug_msg, "[NativeVideoHandler] Raw JSON (len=%u): %.200s\n", header_len, json.c_str());
+      OutputDebugStringA(debug_msg);
+    }
+
+    // Extract inner "header" object from nested structure: {"header": {...}}
+    std::string header_obj = ExtractJsonObject(json, "header");
+
+    // If no "header" wrapper, use the raw json directly (backwards compatibility)
+    const std::string& header = header_obj.empty() ? json : header_obj;
+
+    // Extract header fields
+    stream->current_cam_idx = ExtractJsonString(header, "cam_idx");
+    stream->current_cam_num = ExtractJsonString(header, "cam_num");
+    stream->current_brightness = ExtractJsonDouble(header, "brightness");
+    stream->current_motion = ExtractJsonBool(header, "motion");
+
+    // Debug: print extracted values (first frame only)
+    if (stream->frame_count == 0) {
+      char debug_msg[512];
+      sprintf_s(debug_msg, "[NativeVideoHandler] Parsed: cam_idx=%.50s, cam_num=%.20s, brightness=%.1f, motion=%d\n",
+                stream->current_cam_idx.c_str(), stream->current_cam_num.c_str(),
+                stream->current_brightness, stream->current_motion ? 1 : 0);
+      OutputDebugStringA(debug_msg);
+    }
+
+    // Extract bbox fields from header object
+    std::string bbox_obj = ExtractJsonObject(header, "bbox");
+    if (!bbox_obj.empty()) {
+      stream->current_bbox_x = ExtractJsonInt(bbox_obj, "x");
+      stream->current_bbox_y = ExtractJsonInt(bbox_obj, "y");
+      stream->current_bbox_w = ExtractJsonInt(bbox_obj, "w");
+      stream->current_bbox_h = ExtractJsonInt(bbox_obj, "h");
+    } else {
+      stream->current_bbox_x = 0;
+      stream->current_bbox_y = 0;
+      stream->current_bbox_w = 0;
+      stream->current_bbox_h = 0;
+    }
+  } catch (...) {
+    // Ignore any parsing errors
+    OutputDebugStringA("[NativeVideoHandler] ParseHeader exception\n");
+  }
 }
 
 bool NativeVideoHandler::DecodeJpeg(VideoStream* stream, const uint8_t* jpeg_data, size_t jpeg_size) {
@@ -475,6 +639,14 @@ ErrorOr<std::optional<FrameInfo>> NativeVideoHandler::GetFrameInfo(int64_t textu
   info.set_cam_num(stream->current_cam_num);
   info.set_brightness(stream->current_brightness);
   info.set_motion(stream->current_motion);
+
+  // Set bbox if available
+  if (stream->current_bbox_w > 0 && stream->current_bbox_h > 0) {
+    info.set_bbox_x(stream->current_bbox_x);
+    info.set_bbox_y(stream->current_bbox_y);
+    info.set_bbox_w(stream->current_bbox_w);
+    info.set_bbox_h(stream->current_bbox_h);
+  }
 
   return std::optional<FrameInfo>(info);
 }

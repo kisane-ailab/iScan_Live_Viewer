@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/providers/logger_provider.dart';
 import '../../domain/entities/camera_state.dart';
+import '../../infrastructure/local_storage/camera_settings.dart';
 import '../../infrastructure/native/native_video_renderer.dart';
 import '../../infrastructure/native/generated/native_video_api.g.dart';
 
@@ -32,19 +33,22 @@ class CameraViewModel extends _$CameraViewModel {
       disconnect();
     });
 
+    // 로컬 저장소에서 주소 로드
+    final savedAddress = ref.watch(cameraAddressSettingProvider(id));
+
     return CameraState(
       id: id,
-      address: id < defaultCameraAddresses.length
-          ? defaultCameraAddresses[id]
-          : 'tcp://58.238.37.52:1700${id + 1}',
+      address: savedAddress,
     );
   }
 
-  /// 주소 변경
-  void updateAddress(String address) {
+  /// 주소 변경 (로컬 저장소에 저장)
+  Future<void> updateAddress(String address) async {
     if (state.isConnected) {
       disconnect();
     }
+    // 로컬 저장소에 저장
+    await ref.read(cameraAddressSettingProvider(state.id).notifier).set(address);
     state = state.copyWith(address: address);
   }
 
@@ -149,15 +153,25 @@ class CameraViewModel extends _$CameraViewModel {
         _lastSecond = now;
       }
 
+      // Build header with bbox if available
+      final headerData = <String, dynamic>{
+        'cam_idx': info.camIdx,
+        'cam_num': info.camNum,
+        'brightness': info.brightness,
+        'motion': info.motion,
+      };
+
+      if (info.bboxW != null && info.bboxH != null && info.bboxW! > 0 && info.bboxH! > 0) {
+        headerData['bbox'] = {
+          'x': info.bboxX,
+          'y': info.bboxY,
+          'w': info.bboxW,
+          'h': info.bboxH,
+        };
+      }
+
       state = state.copyWith(
-        header: {
-          'header': {
-            'cam_idx': info.camIdx,
-            'cam_num': info.camNum,
-            'brightness': info.brightness,
-            'motion': info.motion,
-          }
-        },
+        header: {'header': headerData},
         frameCount: info.frameCount,
         lastFrameTime: now,
         isReceiveTimeout: false,
@@ -247,11 +261,18 @@ class CameraLogExpanded extends _$CameraLogExpanded {
   void set(bool value) => state = value;
 }
 
-/// 화면에 표시할 카메라 갯수 (1, 2, 4)
+/// 화면에 표시할 카메라 갯수 (1, 2, 4) - 로컬 저장
 @riverpod
 class CameraCount extends _$CameraCount {
   @override
-  int build() => 2;
+  int build() {
+    // 로컬 저장소에서 카메라 갯수 로드
+    return ref.watch(cameraCountSettingProvider);
+  }
 
-  void set(int count) => state = count;
+  Future<void> set(int count) async {
+    // 로컬 저장소에 저장
+    await ref.read(cameraCountSettingProvider.notifier).set(count);
+    state = count;
+  }
 }

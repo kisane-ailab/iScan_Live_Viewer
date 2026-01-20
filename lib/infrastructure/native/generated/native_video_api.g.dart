@@ -32,6 +32,10 @@ class FrameInfo {
     this.camNum,
     this.brightness,
     this.motion,
+    this.bboxX,
+    this.bboxY,
+    this.bboxW,
+    this.bboxH,
     required this.frameCount,
   });
 
@@ -43,6 +47,14 @@ class FrameInfo {
 
   bool? motion;
 
+  int? bboxX;
+
+  int? bboxY;
+
+  int? bboxW;
+
+  int? bboxH;
+
   int frameCount;
 
   Object encode() {
@@ -51,6 +63,10 @@ class FrameInfo {
       camNum,
       brightness,
       motion,
+      bboxX,
+      bboxY,
+      bboxW,
+      bboxH,
       frameCount,
     ];
   }
@@ -62,7 +78,11 @@ class FrameInfo {
       camNum: result[1] as String?,
       brightness: result[2] as double?,
       motion: result[3] as bool?,
-      frameCount: result[4]! as int,
+      bboxX: result[4] as int?,
+      bboxY: result[5] as int?,
+      bboxW: result[6] as int?,
+      bboxH: result[7] as int?,
+      frameCount: result[8]! as int,
     );
   }
 }

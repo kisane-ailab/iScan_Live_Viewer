@@ -37,11 +37,19 @@ FrameInfo::FrameInfo(
   const std::string* cam_num,
   const double* brightness,
   const bool* motion,
+  const int64_t* bbox_x,
+  const int64_t* bbox_y,
+  const int64_t* bbox_w,
+  const int64_t* bbox_h,
   int64_t frame_count)
  : cam_idx_(cam_idx ? std::optional<std::string>(*cam_idx) : std::nullopt),
     cam_num_(cam_num ? std::optional<std::string>(*cam_num) : std::nullopt),
     brightness_(brightness ? std::optional<double>(*brightness) : std::nullopt),
     motion_(motion ? std::optional<bool>(*motion) : std::nullopt),
+    bbox_x_(bbox_x ? std::optional<int64_t>(*bbox_x) : std::nullopt),
+    bbox_y_(bbox_y ? std::optional<int64_t>(*bbox_y) : std::nullopt),
+    bbox_w_(bbox_w ? std::optional<int64_t>(*bbox_w) : std::nullopt),
+    bbox_h_(bbox_h ? std::optional<int64_t>(*bbox_h) : std::nullopt),
     frame_count_(frame_count) {}
 
 const std::string* FrameInfo::cam_idx() const {
@@ -96,6 +104,58 @@ void FrameInfo::set_motion(bool value_arg) {
 }
 
 
+const int64_t* FrameInfo::bbox_x() const {
+  return bbox_x_ ? &(*bbox_x_) : nullptr;
+}
+
+void FrameInfo::set_bbox_x(const int64_t* value_arg) {
+  bbox_x_ = value_arg ? std::optional<int64_t>(*value_arg) : std::nullopt;
+}
+
+void FrameInfo::set_bbox_x(int64_t value_arg) {
+  bbox_x_ = value_arg;
+}
+
+
+const int64_t* FrameInfo::bbox_y() const {
+  return bbox_y_ ? &(*bbox_y_) : nullptr;
+}
+
+void FrameInfo::set_bbox_y(const int64_t* value_arg) {
+  bbox_y_ = value_arg ? std::optional<int64_t>(*value_arg) : std::nullopt;
+}
+
+void FrameInfo::set_bbox_y(int64_t value_arg) {
+  bbox_y_ = value_arg;
+}
+
+
+const int64_t* FrameInfo::bbox_w() const {
+  return bbox_w_ ? &(*bbox_w_) : nullptr;
+}
+
+void FrameInfo::set_bbox_w(const int64_t* value_arg) {
+  bbox_w_ = value_arg ? std::optional<int64_t>(*value_arg) : std::nullopt;
+}
+
+void FrameInfo::set_bbox_w(int64_t value_arg) {
+  bbox_w_ = value_arg;
+}
+
+
+const int64_t* FrameInfo::bbox_h() const {
+  return bbox_h_ ? &(*bbox_h_) : nullptr;
+}
+
+void FrameInfo::set_bbox_h(const int64_t* value_arg) {
+  bbox_h_ = value_arg ? std::optional<int64_t>(*value_arg) : std::nullopt;
+}
+
+void FrameInfo::set_bbox_h(int64_t value_arg) {
+  bbox_h_ = value_arg;
+}
+
+
 int64_t FrameInfo::frame_count() const {
   return frame_count_;
 }
@@ -107,18 +167,22 @@ void FrameInfo::set_frame_count(int64_t value_arg) {
 
 EncodableList FrameInfo::ToEncodableList() const {
   EncodableList list;
-  list.reserve(5);
+  list.reserve(9);
   list.push_back(cam_idx_ ? EncodableValue(*cam_idx_) : EncodableValue());
   list.push_back(cam_num_ ? EncodableValue(*cam_num_) : EncodableValue());
   list.push_back(brightness_ ? EncodableValue(*brightness_) : EncodableValue());
   list.push_back(motion_ ? EncodableValue(*motion_) : EncodableValue());
+  list.push_back(bbox_x_ ? EncodableValue(*bbox_x_) : EncodableValue());
+  list.push_back(bbox_y_ ? EncodableValue(*bbox_y_) : EncodableValue());
+  list.push_back(bbox_w_ ? EncodableValue(*bbox_w_) : EncodableValue());
+  list.push_back(bbox_h_ ? EncodableValue(*bbox_h_) : EncodableValue());
   list.push_back(EncodableValue(frame_count_));
   return list;
 }
 
 FrameInfo FrameInfo::FromEncodableList(const EncodableList& list) {
   FrameInfo decoded(
-    std::get<int64_t>(list[4]));
+    std::get<int64_t>(list[8]));
   auto& encodable_cam_idx = list[0];
   if (!encodable_cam_idx.IsNull()) {
     decoded.set_cam_idx(std::get<std::string>(encodable_cam_idx));
@@ -134,6 +198,22 @@ FrameInfo FrameInfo::FromEncodableList(const EncodableList& list) {
   auto& encodable_motion = list[3];
   if (!encodable_motion.IsNull()) {
     decoded.set_motion(std::get<bool>(encodable_motion));
+  }
+  auto& encodable_bbox_x = list[4];
+  if (!encodable_bbox_x.IsNull()) {
+    decoded.set_bbox_x(std::get<int64_t>(encodable_bbox_x));
+  }
+  auto& encodable_bbox_y = list[5];
+  if (!encodable_bbox_y.IsNull()) {
+    decoded.set_bbox_y(std::get<int64_t>(encodable_bbox_y));
+  }
+  auto& encodable_bbox_w = list[6];
+  if (!encodable_bbox_w.IsNull()) {
+    decoded.set_bbox_w(std::get<int64_t>(encodable_bbox_w));
+  }
+  auto& encodable_bbox_h = list[7];
+  if (!encodable_bbox_h.IsNull()) {
+    decoded.set_bbox_h(std::get<int64_t>(encodable_bbox_h));
   }
   return decoded;
 }
