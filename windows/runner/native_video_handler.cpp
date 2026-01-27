@@ -1,9 +1,14 @@
 #include "native_video_handler.h"
 #include <windows.h>
+#include <winhttp.h>
 #include <turbojpeg.h>
 #include <zmq.h>
 #include <cstring>
 #include <chrono>
+#include <algorithm>
+#include <cctype>
+
+#pragma comment(lib, "winhttp.lib")
 
 // JSON parsing helper (simple implementation for header parsing)
 #include <string>
@@ -248,10 +253,17 @@ ErrorOr<int64_t> NativeVideoHandler::Initialize(int64_t texture_key) {
   return texture_id;
 }
 
-std::optional<FlutterError> NativeVideoHandler::StartStream(int64_t texture_key, const std::string& zmq_address) {
+std::optional<FlutterError> NativeVideoHandler::StartStream(int64_t texture_key, const std::string& address) {
+  // Trim whitespace
+  std::string addr = address;
+  size_t start = addr.find_first_not_of(" \t\r\n");
+  size_t end = addr.find_last_not_of(" \t\r\n");
+  if (start != std::string::npos && end != std::string::npos) {
+    addr = addr.substr(start, end - start + 1);
+  }
+
   char msg[256];
-  sprintf_s(msg, "[NativeVideoHandler] StartStream: %s for key: %lld\n",
-            zmq_address.c_str(), texture_key);
+  sprintf_s(msg, "[NativeVideoHandler] StartStream: %s for key: %lld\n", addr.c_str(), texture_key);
   OutputDebugStringA(msg);
 
   std::lock_guard<std::mutex> lock(streams_mutex_);
@@ -267,40 +279,56 @@ std::optional<FlutterError> NativeVideoHandler::StartStream(int64_t texture_key,
     return FlutterError("already_running", "Stream is already running");
   }
 
-  // Initialize ZMQ for this stream
-  stream->zmq_context = zmq_ctx_new();
-  if (!stream->zmq_context) {
-    return FlutterError("zmq_error", "Failed to create ZMQ context");
+  stream->stream_address = addr;
+
+  // Detect stream type from address
+  std::string addr_lower = addr;
+  for (auto& c : addr_lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+
+  if (addr_lower.rfind("http://", 0) == 0 || addr_lower.rfind("https://", 0) == 0) {
+    // HTTP MJPEG
+    stream->stream_type = StreamType::HTTP_MJPEG;
+    OutputDebugStringA("[NativeVideoHandler] Using HTTP MJPEG mode\n");
+
+    if (!StartHttpStream(stream, addr)) {
+      return FlutterError("http_error", "Failed to start HTTP stream");
+    }
+  } else {
+    // ZMQ (tcp://)
+    stream->stream_type = StreamType::ZMQ;
+    OutputDebugStringA("[NativeVideoHandler] Using ZMQ mode\n");
+
+    stream->zmq_context = zmq_ctx_new();
+    if (!stream->zmq_context) {
+      return FlutterError("zmq_error", "Failed to create ZMQ context");
+    }
+
+    stream->zmq_socket = zmq_socket(stream->zmq_context, ZMQ_SUB);
+    if (!stream->zmq_socket) {
+      zmq_ctx_destroy(stream->zmq_context);
+      stream->zmq_context = nullptr;
+      return FlutterError("zmq_error", "Failed to create ZMQ socket");
+    }
+
+    int linger = 0;
+    zmq_setsockopt(stream->zmq_socket, ZMQ_LINGER, &linger, sizeof(linger));
+
+    int rcvtimeo = 100;
+    zmq_setsockopt(stream->zmq_socket, ZMQ_RCVTIMEO, &rcvtimeo, sizeof(rcvtimeo));
+
+    int rc = zmq_connect(stream->zmq_socket, addr.c_str());
+    if (rc != 0) {
+      zmq_close(stream->zmq_socket);
+      zmq_ctx_destroy(stream->zmq_context);
+      stream->zmq_socket = nullptr;
+      stream->zmq_context = nullptr;
+      return FlutterError("zmq_error", "Failed to connect to ZMQ address");
+    }
+
+    zmq_setsockopt(stream->zmq_socket, ZMQ_SUBSCRIBE, "", 0);
   }
 
-  stream->zmq_socket = zmq_socket(stream->zmq_context, ZMQ_SUB);
-  if (!stream->zmq_socket) {
-    zmq_ctx_destroy(stream->zmq_context);
-    stream->zmq_context = nullptr;
-    return FlutterError("zmq_error", "Failed to create ZMQ socket");
-  }
-
-  // Set socket options
-  int linger = 0;
-  zmq_setsockopt(stream->zmq_socket, ZMQ_LINGER, &linger, sizeof(linger));
-
-  int rcvtimeo = 100;  // 100ms receive timeout
-  zmq_setsockopt(stream->zmq_socket, ZMQ_RCVTIMEO, &rcvtimeo, sizeof(rcvtimeo));
-
-  // Connect to publisher
-  int rc = zmq_connect(stream->zmq_socket, zmq_address.c_str());
-  if (rc != 0) {
-    zmq_close(stream->zmq_socket);
-    zmq_ctx_destroy(stream->zmq_context);
-    stream->zmq_socket = nullptr;
-    stream->zmq_context = nullptr;
-    return FlutterError("zmq_error", "Failed to connect to ZMQ address");
-  }
-
-  // Subscribe to all messages
-  zmq_setsockopt(stream->zmq_socket, ZMQ_SUBSCRIBE, "", 0);
-
-  // Start receive thread for this stream
+  // Start receive thread
   stream->is_running = true;
   stream->receive_thread = std::thread(&NativeVideoHandler::ReceiveLoop, this, texture_key);
 
@@ -325,6 +353,17 @@ void NativeVideoHandler::ReceiveLoop(int64_t texture_key) {
     stream = it->second.get();
   }
 
+  if (stream->stream_type == StreamType::HTTP_MJPEG) {
+    ReceiveLoopHttp(stream);
+  } else {
+    ReceiveLoopZmq(stream);
+  }
+
+  sprintf_s(msg, "[NativeVideoHandler] ReceiveLoop ended for key: %lld\n", texture_key);
+  OutputDebugStringA(msg);
+}
+
+void NativeVideoHandler::ReceiveLoopZmq(VideoStream* stream) {
   std::vector<uint8_t> recv_buffer(2 * 1024 * 1024);  // 2MB buffer
 
   while (stream->is_running && stream->zmq_socket != nullptr) {
@@ -334,37 +373,29 @@ void NativeVideoHandler::ReceiveLoop(int64_t texture_key) {
     int size = zmq_recv(socket, recv_buffer.data(), recv_buffer.size(), 0);
 
     if (size > 0) {
-      // Parse header length (first 4 bytes, little-endian)
       uint32_t header_len;
       memcpy(&header_len, recv_buffer.data(), sizeof(header_len));
 
-      // Debug: print header_len
       if (stream->frame_count < 3) {
         char dbg[128];
         sprintf_s(dbg, "[NativeVideoHandler] header_len=%u, msg_size=%d\n", header_len, size);
         OutputDebugStringA(dbg);
       }
 
-      // Validate header length
       if (header_len > 1024 * 1024) {
-        // No JSON header, raw JPEG data
         if (stream->is_running && DecodeJpeg(stream, recv_buffer.data(), size)) {
-          // Notify Flutter
           if (texture_registrar_ && stream->texture_id >= 0) {
             texture_registrar_->MarkTextureFrameAvailable(stream->texture_id);
           }
           ++stream->frame_count;
         }
       } else {
-        // Parse JSON header
         ParseHeader(stream, recv_buffer.data() + sizeof(header_len), header_len);
 
-        // Decode JPEG data
         const uint8_t* jpeg_data = recv_buffer.data() + sizeof(header_len) + header_len;
         size_t jpeg_size = size - sizeof(header_len) - header_len;
 
         if (stream->is_running && DecodeJpeg(stream, jpeg_data, jpeg_size)) {
-          // Notify Flutter that texture is updated
           if (texture_registrar_ && stream->texture_id >= 0) {
             texture_registrar_->MarkTextureFrameAvailable(stream->texture_id);
           }
@@ -374,19 +405,119 @@ void NativeVideoHandler::ReceiveLoop(int64_t texture_key) {
     } else if (size == -1) {
       int err = zmq_errno();
       if (err == ETERM || err == ENOTSOCK) {
-        // Socket was closed, exit the loop
         break;
       }
-      if (err != EAGAIN) {  // EAGAIN is timeout, which is expected
+      if (err != EAGAIN) {
         char errmsg[128];
-        sprintf_s(errmsg, "[NativeVideoHandler] ZMQ recv error: %d for key: %lld\n", err, texture_key);
+        sprintf_s(errmsg, "[NativeVideoHandler] ZMQ recv error: %d\n", err);
         OutputDebugStringA(errmsg);
       }
     }
   }
+}
 
-  sprintf_s(msg, "[NativeVideoHandler] ReceiveLoop ended for key: %lld\n", texture_key);
-  OutputDebugStringA(msg);
+void NativeVideoHandler::ReceiveLoopHttp(VideoStream* stream) {
+  std::vector<uint8_t> buffer(64 * 1024);
+  std::vector<uint8_t> accumulator;
+  accumulator.reserve(512 * 1024);
+
+  std::string boundary = "frame";  // Default
+
+  while (stream->is_running && stream->http_request) {
+    DWORD bytesAvailable = 0;
+    if (!WinHttpQueryDataAvailable(stream->http_request, &bytesAvailable)) {
+      if (!stream->is_running) break;
+      Sleep(10);
+      continue;
+    }
+
+    if (bytesAvailable == 0) {
+      Sleep(1);
+      continue;
+    }
+
+    DWORD bytesToRead = (std::min)(bytesAvailable, static_cast<DWORD>(buffer.size()));
+    DWORD bytesRead = 0;
+
+    if (!WinHttpReadData(stream->http_request, buffer.data(), bytesToRead, &bytesRead)) {
+      if (!stream->is_running) break;
+      OutputDebugStringA("[NativeVideoHandler] WinHttpReadData failed\n");
+      break;
+    }
+
+    if (bytesRead == 0) continue;
+
+    accumulator.insert(accumulator.end(), buffer.begin(), buffer.begin() + bytesRead);
+
+    // Parse MJPEG frames
+    std::string boundaryMarker = "--" + boundary;
+    while (accumulator.size() > 100 && stream->is_running) {
+      std::string acc_str(accumulator.begin(), accumulator.end());
+      size_t boundary_pos = acc_str.find(boundaryMarker);
+      if (boundary_pos == std::string::npos) break;
+
+      size_t headers_start = boundary_pos + boundaryMarker.size();
+      size_t headers_end = acc_str.find("\r\n\r\n", headers_start);
+      if (headers_end == std::string::npos) break;
+
+      std::string headers = acc_str.substr(headers_start, headers_end - headers_start);
+
+      size_t content_len = 0;
+      size_t cl_pos = headers.find("Content-Length:");
+      if (cl_pos == std::string::npos) cl_pos = headers.find("content-length:");
+      if (cl_pos != std::string::npos) {
+        size_t val_start = cl_pos + 15;
+        while (val_start < headers.size() && (headers[val_start] == ' ' || headers[val_start] == ':')) val_start++;
+        size_t val_end = headers.find_first_of("\r\n", val_start);
+        if (val_end != std::string::npos) {
+          try { content_len = std::stoul(headers.substr(val_start, val_end - val_start)); } catch (...) {}
+        }
+      }
+
+      size_t jpeg_offset = headers_end + 4;
+
+      if (content_len == 0) {
+        size_t next_boundary = acc_str.find(boundaryMarker, jpeg_offset);
+        if (next_boundary != std::string::npos) {
+          size_t jpeg_end = next_boundary;
+          while (jpeg_end > jpeg_offset && (acc_str[jpeg_end - 1] == '\n' || acc_str[jpeg_end - 1] == '\r')) jpeg_end--;
+          content_len = jpeg_end - jpeg_offset;
+        } else {
+          break;
+        }
+      }
+
+      if (jpeg_offset + content_len > accumulator.size()) break;
+
+      if (content_len > 0 && stream->is_running) {
+        if (DecodeJpeg(stream, &accumulator[jpeg_offset], content_len)) {
+          if (texture_registrar_ && stream->texture_id >= 0) {
+            texture_registrar_->MarkTextureFrameAvailable(stream->texture_id);
+          }
+          ++stream->frame_count;
+
+          // Set cam_idx from URL
+          if (stream->current_cam_idx.empty()) {
+            size_t cam_pos = stream->stream_address.find("cam=");
+            if (cam_pos != std::string::npos) {
+              size_t val_start = cam_pos + 4;
+              size_t val_end = stream->stream_address.find_first_of("&# ", val_start);
+              if (val_end == std::string::npos) val_end = stream->stream_address.size();
+              stream->current_cam_idx = stream->stream_address.substr(val_start, val_end - val_start);
+            }
+          }
+        }
+      }
+
+      size_t remove_len = jpeg_offset + content_len;
+      while (remove_len < accumulator.size() && (accumulator[remove_len] == '\r' || accumulator[remove_len] == '\n')) remove_len++;
+      accumulator.erase(accumulator.begin(), accumulator.begin() + remove_len);
+    }
+
+    if (accumulator.size() > 2 * 1024 * 1024) {
+      accumulator.clear();
+    }
+  }
 }
 
 void NativeVideoHandler::ParseHeader(VideoStream* stream, const uint8_t* data, uint32_t header_len) {
@@ -506,6 +637,7 @@ std::optional<FlutterError> NativeVideoHandler::StopStream(int64_t texture_key) 
 
   VideoStream* stream = nullptr;
   std::thread thread_to_join;
+  StreamType stream_type = StreamType::ZMQ;
 
   {
     std::lock_guard<std::mutex> lock(streams_mutex_);
@@ -517,6 +649,13 @@ std::optional<FlutterError> NativeVideoHandler::StopStream(int64_t texture_key) 
 
     stream = it->second.get();
     stream->is_running = false;
+    stream_type = stream->stream_type;
+
+    // For HTTP: close handles FIRST to unblock WinHttp calls (no timeout)
+    // For ZMQ: DON'T close yet - it has 100ms timeout, let thread exit naturally
+    if (stream_type == StreamType::HTTP_MJPEG) {
+      StopHttpStream(stream);
+    }
 
     // Move thread out for joining outside the lock
     if (stream->receive_thread.joinable()) {
@@ -529,7 +668,7 @@ std::optional<FlutterError> NativeVideoHandler::StopStream(int64_t texture_key) 
     thread_to_join.join();
   }
 
-  // Cleanup ZMQ resources
+  // Cleanup remaining resources
   {
     std::lock_guard<std::mutex> lock(streams_mutex_);
 
@@ -537,6 +676,7 @@ std::optional<FlutterError> NativeVideoHandler::StopStream(int64_t texture_key) 
     if (it != streams_.end()) {
       stream = it->second.get();
 
+      // Cleanup ZMQ (now safe - thread has exited)
       if (stream->zmq_socket) {
         zmq_close(stream->zmq_socket);
         stream->zmq_socket = nullptr;
@@ -558,6 +698,7 @@ void NativeVideoHandler::CleanupStream(int64_t texture_key) {
 
   VideoStream* stream = nullptr;
   std::thread thread_to_join;
+  StreamType stream_type = StreamType::ZMQ;
 
   {
     std::lock_guard<std::mutex> lock(streams_mutex_);
@@ -568,6 +709,13 @@ void NativeVideoHandler::CleanupStream(int64_t texture_key) {
 
     stream = it->second.get();
     stream->is_running = false;
+    stream_type = stream->stream_type;
+
+    // For HTTP: close handles FIRST to unblock WinHttp calls (no timeout)
+    // For ZMQ: DON'T close yet - it has 100ms timeout, let thread exit naturally
+    if (stream_type == StreamType::HTTP_MJPEG) {
+      StopHttpStream(stream);
+    }
 
     // Move thread out for joining outside the lock
     if (stream->receive_thread.joinable()) {
@@ -580,7 +728,7 @@ void NativeVideoHandler::CleanupStream(int64_t texture_key) {
     thread_to_join.join();
   }
 
-  // Cleanup resources
+  // Cleanup remaining resources
   {
     std::lock_guard<std::mutex> lock(streams_mutex_);
     auto it = streams_.find(texture_key);
@@ -590,7 +738,7 @@ void NativeVideoHandler::CleanupStream(int64_t texture_key) {
 
     stream = it->second.get();
 
-    // Clean up ZMQ
+    // Clean up ZMQ (now safe - thread has exited)
     if (stream->zmq_socket) {
       zmq_close(stream->zmq_socket);
       stream->zmq_socket = nullptr;
@@ -669,4 +817,179 @@ std::optional<FlutterError> NativeVideoHandler::Dispose(int64_t texture_key) {
   }
 
   return std::nullopt;
+}
+
+bool NativeVideoHandler::StartHttpStream(VideoStream* stream, const std::string& url) {
+  OutputDebugStringA("[NativeVideoHandler] StartHttpStream\n");
+
+  // Parse URL (http://host:port/path)
+  std::string host;
+  std::string path = "/";
+  int port = 80;
+  bool is_https = false;
+
+  std::string work_url = url;
+  if (work_url.rfind("https://", 0) == 0) {
+    is_https = true;
+    port = 443;
+    work_url = work_url.substr(8);
+  } else if (work_url.rfind("http://", 0) == 0) {
+    work_url = work_url.substr(7);
+  }
+
+  // Find path
+  size_t path_pos = work_url.find('/');
+  if (path_pos != std::string::npos) {
+    path = work_url.substr(path_pos);
+    work_url = work_url.substr(0, path_pos);
+  }
+
+  // Find port
+  size_t port_pos = work_url.find(':');
+  if (port_pos != std::string::npos) {
+    host = work_url.substr(0, port_pos);
+    try { port = std::stoi(work_url.substr(port_pos + 1)); } catch (...) {}
+  } else {
+    host = work_url;
+  }
+
+  char dbg[512];
+  sprintf_s(dbg, "[NativeVideoHandler] HTTP: host=%s, port=%d, path=%s\n", host.c_str(), port, path.c_str());
+  OutputDebugStringA(dbg);
+
+  // Convert host to wide string
+  std::wstring whost;
+  whost.reserve(host.size());
+  for (char c : host) {
+    whost.push_back(static_cast<wchar_t>(static_cast<unsigned char>(c)));
+  }
+
+  // Convert path to wide string
+  std::wstring wpath;
+  wpath.reserve(path.size());
+  for (char c : path) {
+    wpath.push_back(static_cast<wchar_t>(static_cast<unsigned char>(c)));
+  }
+
+  // Create session
+  stream->http_session = WinHttpOpen(
+    L"iScan_Live_Viewer/1.0",
+    WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+    WINHTTP_NO_PROXY_NAME,
+    WINHTTP_NO_PROXY_BYPASS,
+    0
+  );
+
+  if (!stream->http_session) {
+    OutputDebugStringA("[NativeVideoHandler] WinHttpOpen failed\n");
+    return false;
+  }
+
+  // Set timeouts: resolve=5s, connect=5s, send=5s, receive=30s (streaming)
+  WinHttpSetTimeouts(stream->http_session, 5000, 5000, 5000, 30000);
+
+  // Connect
+  stream->http_connection = WinHttpConnect(
+    stream->http_session,
+    whost.c_str(),
+    static_cast<INTERNET_PORT>(port),
+    0
+  );
+
+  if (!stream->http_connection) {
+    DWORD err = GetLastError();
+    sprintf_s(dbg, "[NativeVideoHandler] WinHttpConnect failed: %lu\n", err);
+    OutputDebugStringA(dbg);
+    WinHttpCloseHandle(stream->http_session);
+    stream->http_session = nullptr;
+    return false;
+  }
+
+  // Open request
+  DWORD flags = is_https ? WINHTTP_FLAG_SECURE : 0;
+  stream->http_request = WinHttpOpenRequest(
+    stream->http_connection,
+    L"GET",
+    wpath.c_str(),
+    NULL,
+    WINHTTP_NO_REFERER,
+    WINHTTP_DEFAULT_ACCEPT_TYPES,
+    flags
+  );
+
+  if (!stream->http_request) {
+    DWORD err = GetLastError();
+    sprintf_s(dbg, "[NativeVideoHandler] WinHttpOpenRequest failed: %lu\n", err);
+    OutputDebugStringA(dbg);
+    WinHttpCloseHandle(stream->http_connection);
+    WinHttpCloseHandle(stream->http_session);
+    stream->http_connection = nullptr;
+    stream->http_session = nullptr;
+    return false;
+  }
+
+  // Send request
+  if (!WinHttpSendRequest(stream->http_request, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) {
+    DWORD err = GetLastError();
+    sprintf_s(dbg, "[NativeVideoHandler] WinHttpSendRequest failed: %lu\n", err);
+    OutputDebugStringA(dbg);
+    WinHttpCloseHandle(stream->http_request);
+    WinHttpCloseHandle(stream->http_connection);
+    WinHttpCloseHandle(stream->http_session);
+    stream->http_request = nullptr;
+    stream->http_connection = nullptr;
+    stream->http_session = nullptr;
+    return false;
+  }
+
+  // Receive response
+  if (!WinHttpReceiveResponse(stream->http_request, NULL)) {
+    DWORD err = GetLastError();
+    sprintf_s(dbg, "[NativeVideoHandler] WinHttpReceiveResponse failed: %lu\n", err);
+    OutputDebugStringA(dbg);
+    WinHttpCloseHandle(stream->http_request);
+    WinHttpCloseHandle(stream->http_connection);
+    WinHttpCloseHandle(stream->http_session);
+    stream->http_request = nullptr;
+    stream->http_connection = nullptr;
+    stream->http_session = nullptr;
+    return false;
+  }
+
+  // Check status code
+  DWORD statusCode = 0;
+  DWORD statusCodeSize = sizeof(statusCode);
+  WinHttpQueryHeaders(stream->http_request, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                      WINHTTP_HEADER_NAME_BY_INDEX, &statusCode, &statusCodeSize, WINHTTP_NO_HEADER_INDEX);
+
+  sprintf_s(dbg, "[NativeVideoHandler] HTTP status: %lu\n", statusCode);
+  OutputDebugStringA(dbg);
+
+  if (statusCode != 200) {
+    WinHttpCloseHandle(stream->http_request);
+    WinHttpCloseHandle(stream->http_connection);
+    WinHttpCloseHandle(stream->http_session);
+    stream->http_request = nullptr;
+    stream->http_connection = nullptr;
+    stream->http_session = nullptr;
+    return false;
+  }
+
+  OutputDebugStringA("[NativeVideoHandler] HTTP stream started successfully\n");
+  return true;
+}
+
+void NativeVideoHandler::StopHttpStream(VideoStream* stream) {
+  if (stream->http_request) {
+    WinHttpCloseHandle(stream->http_request);
+    stream->http_request = nullptr;
+  }
+  if (stream->http_connection) {
+    WinHttpCloseHandle(stream->http_connection);
+    stream->http_connection = nullptr;
+  }
+  if (stream->http_session) {
+    WinHttpCloseHandle(stream->http_session);
+    stream->http_session = nullptr;
+  }
 }

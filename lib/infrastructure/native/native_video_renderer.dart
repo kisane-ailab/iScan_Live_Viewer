@@ -4,9 +4,21 @@ import 'generated/native_video_api.g.dart';
 
 /// Native C++ 기반 비디오 렌더러
 ///
-/// ZMQ 수신 및 JPEG 디코딩을 C++에서 처리하여 고성능 비디오 스트리밍을 제공합니다.
+/// ZMQ 또는 HTTP MJPEG 스트림 수신 및 JPEG 디코딩을 C++에서 처리하여
+/// 고성능 비디오 스트리밍을 제공합니다.
+///
+/// 지원 프로토콜:
+/// - ZMQ: tcp://IP:PORT (예: tcp://192.168.0.100:17002)
+/// - HTTP MJPEG: http://IP:PORT/path (예: http://192.168.0.100:18081/livecam/mjpeg?cam=left)
+///
+/// 주소 형식에 따라 자동으로 프로토콜이 선택됩니다:
+/// - tcp:// 또는 지정 없음 → ZMQ PUB/SUB
+/// - http:// 또는 https:// → HTTP MJPEG 스트리밍
+///
+/// 기술 스택:
 /// - libjpeg-turbo: SIMD 가속 JPEG 디코딩 (~1-2ms)
-/// - ZeroMQ: 네이티브 소켓 통신
+/// - ZeroMQ: ZMQ 스트림용 네이티브 소켓 통신
+/// - WinHTTP: HTTP MJPEG 스트림용 HTTP 클라이언트
 /// - TextureRegistrar: 제로카피 GPU 텍스처 업데이트
 class NativeVideoRenderer implements NativeVideoFlutterApi {
   final NativeVideoHostApi _hostApi = NativeVideoHostApi();
@@ -37,14 +49,16 @@ class NativeVideoRenderer implements NativeVideoFlutterApi {
     return _textureId!;
   }
 
-  /// ZMQ 스트림 시작
+  /// 스트림 시작 (ZMQ 또는 HTTP MJPEG 자동 감지)
   ///
-  /// [zmqAddress] - ZMQ 연결 주소 (예: "tcp://localhost:5556")
-  Future<void> startStream(String zmqAddress) async {
+  /// [address] - 스트림 주소
+  ///   - ZMQ: "tcp://IP:PORT" (예: "tcp://192.168.0.100:17002")
+  ///   - HTTP MJPEG: "http://IP:PORT/path" (예: "http://192.168.0.100:18081/livecam/mjpeg?cam=left")
+  Future<void> startStream(String address) async {
     if (!_isInitialized || _textureKey == null) {
       throw StateError('NativeVideoRenderer not initialized. Call initialize() first.');
     }
-    await _hostApi.startStream(_textureKey!, zmqAddress);
+    await _hostApi.startStream(_textureKey!, address);
   }
 
   /// ZMQ 스트림 중지
