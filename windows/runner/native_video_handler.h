@@ -3,6 +3,7 @@
 #include "native_video_api.g.h"
 #include <flutter/texture_registrar.h>
 #include <windows.h>
+#include <winhttp.h>
 #include <thread>
 #include <atomic>
 #include <mutex>
@@ -10,6 +11,9 @@
 #include <map>
 #include <queue>
 #include <functional>
+
+// Stream type
+enum class StreamType { ZMQ, HTTP_MJPEG };
 
 // Custom Windows message for frame callbacks
 #define WM_NATIVE_VIDEO_FRAME (WM_USER + 100)
@@ -36,9 +40,18 @@ struct VideoStream {
   int frame_width = 0;
   int frame_height = 0;
 
+  // Stream type and address
+  StreamType stream_type = StreamType::ZMQ;
+  std::string stream_address;
+
   // ZMQ handles (per stream)
   void* zmq_context = nullptr;
   void* zmq_socket = nullptr;
+
+  // HTTP handles (per stream)
+  HINTERNET http_session = nullptr;
+  HINTERNET http_connection = nullptr;
+  HINTERNET http_request = nullptr;
 
   // TurboJPEG handle (per stream for thread safety)
   tjhandle tj_handle = nullptr;
@@ -85,9 +98,13 @@ class NativeVideoHandler : public NativeVideoHostApi {
 
  private:
   void ReceiveLoop(int64_t texture_key);
+  void ReceiveLoopZmq(VideoStream* stream);
+  void ReceiveLoopHttp(VideoStream* stream);
   bool DecodeJpeg(VideoStream* stream, const uint8_t* jpeg_data, size_t jpeg_size);
   void ParseHeader(VideoStream* stream, const uint8_t* data, uint32_t header_len);
   void CleanupStream(int64_t texture_key);
+  bool StartHttpStream(VideoStream* stream, const std::string& url);
+  void StopHttpStream(VideoStream* stream);
 
   flutter::TextureRegistrar* texture_registrar_;
   std::unique_ptr<NativeVideoFlutterApi> flutter_api_;

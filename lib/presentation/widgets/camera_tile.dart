@@ -154,7 +154,7 @@ class CameraTile extends HookConsumerWidget {
     ValueNotifier<bool> isEditing,
   ) {
     return Container(
-      height: 40,
+      height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: const BoxDecoration(
         color: Color(0xFF252525),
@@ -182,10 +182,10 @@ class CameraTile extends HookConsumerWidget {
             child: isEditing.value
                 ? TextField(
                     controller: addressController,
-                    style: const TextStyle(color: Colors.white, fontSize: 11),
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
                     decoration: const InputDecoration(
                       isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                       border: OutlineInputBorder(),
                       fillColor: Color(0xFF333333),
                       filled: true,
@@ -199,7 +199,7 @@ class CameraTile extends HookConsumerWidget {
                     onDoubleTap: () => isEditing.value = true,
                     child: Text(
                       camera.address,
-                      style: const TextStyle(color: Colors.white70, fontSize: 10),
+                      style: const TextStyle(color: Colors.white70, fontSize: 13),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
