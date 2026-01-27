@@ -22,6 +22,9 @@ class CameraTile extends HookConsumerWidget {
     final isEditing = useState(false);
     final logFontSize = useState(9.0);
 
+    // HTTP 카메라 선택 상태
+    final selectedHttpCam = useState<String?>(null);
+
     // 테두리 색상 결정: 수신 타임아웃 시 빨간색
     final borderColor = camera.isReceiveTimeout
         ? Colors.red.withOpacity(0.7)
@@ -48,6 +51,7 @@ class CameraTile extends HookConsumerWidget {
             isLogExpanded,
             addressController,
             isEditing,
+            selectedHttpCam,
           ),
           Expanded(
             child: Stack(
@@ -144,6 +148,46 @@ class CameraTile extends HookConsumerWidget {
     );
   }
 
+  // HTTP 카메라 옵션 목록
+  static const List<String> _httpCamOptions = [
+    'left',
+    'right',
+    'single_1',
+    'single_2',
+    'single_3',
+    'single_4',
+  ];
+
+  // 주소가 HTTP인지 확인
+  bool _isHttpAddress(String address) {
+    final lower = address.trim().toLowerCase();
+    return lower.startsWith('http://') || lower.startsWith('https://');
+  }
+
+  // HTTP 기본 URL 추출 (쿼리 파라미터 제거)
+  String _getHttpBaseUrl(String address) {
+    final trimmed = address.trim();
+    // /livecam 이전까지만 추출
+    final livecamIdx = trimmed.indexOf('/livecam');
+    if (livecamIdx > 0) {
+      return trimmed.substring(0, livecamIdx);
+    }
+    // 쿼리 파라미터 제거
+    final queryIdx = trimmed.indexOf('?');
+    if (queryIdx > 0) {
+      return trimmed.substring(0, queryIdx);
+    }
+    return trimmed;
+  }
+
+  // HTTP 전체 URL 생성
+  String _buildHttpUrl(String baseUrl, String cam) {
+    final base = baseUrl.trim();
+    // 이미 /livecam이 포함되어 있으면 기본 URL만 추출
+    final cleanBase = _getHttpBaseUrl(base);
+    return '$cleanBase/livecam/mjpeg?cam=$cam';
+  }
+
   Widget _buildHeader(
     BuildContext context,
     WidgetRef ref,
@@ -152,7 +196,10 @@ class CameraTile extends HookConsumerWidget {
     bool isLogExpanded,
     TextEditingController addressController,
     ValueNotifier<bool> isEditing,
+    ValueNotifier<String?> selectedHttpCam,
   ) {
+    final isHttp = _isHttpAddress(addressController.text);
+
     return Container(
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -183,13 +230,19 @@ class CameraTile extends HookConsumerWidget {
                 ? TextField(
                     controller: addressController,
                     style: const TextStyle(color: Colors.white, fontSize: 14),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                      border: OutlineInputBorder(),
-                      fillColor: Color(0xFF333333),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      border: const OutlineInputBorder(),
+                      fillColor: const Color(0xFF333333),
                       filled: true,
+                      hintText: isHttp ? 'http://IP:18081' : 'tcp://IP:17002',
+                      hintStyle: const TextStyle(color: Colors.white24, fontSize: 12),
                     ),
+                    onChanged: (_) {
+                      // 주소 변경 시 UI 갱신 (HTTP 감지용)
+                      (context as Element).markNeedsBuild();
+                    },
                     onSubmitted: (value) {
                       notifier.updateAddress(value);
                       isEditing.value = false;
@@ -204,6 +257,36 @@ class CameraTile extends HookConsumerWidget {
                     ),
                   ),
           ),
+          // HTTP일 때 카메라 선택 드롭다운 표시
+          if (isHttp && !camera.isConnected) ...[
+            const SizedBox(width: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF333333),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: selectedHttpCam.value ?? _httpCamOptions.first,
+                  dropdownColor: const Color(0xFF333333),
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  icon: const Icon(Icons.arrow_drop_down, color: Colors.white54, size: 16),
+                  isDense: true,
+                  items: _httpCamOptions.map((cam) {
+                    return DropdownMenuItem(
+                      value: cam,
+                      child: Text(cam, style: const TextStyle(fontSize: 12)),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    selectedHttpCam.value = value;
+                  },
+                ),
+              ),
+            ),
+          ],
           if (isEditing.value)
             IconButton(
               icon: const Icon(Icons.check, size: 16),
@@ -225,6 +308,14 @@ class CameraTile extends HookConsumerWidget {
                 if (camera.isConnected) {
                   notifier.disconnect();
                 } else {
+                  // HTTP면 선택된 카메라로 URL 조합
+                  if (isHttp) {
+                    final baseUrl = _getHttpBaseUrl(addressController.text);
+                    final cam = selectedHttpCam.value ?? _httpCamOptions.first;
+                    final fullUrl = _buildHttpUrl(baseUrl, cam);
+                    notifier.updateAddress(fullUrl);
+                    addressController.text = fullUrl;
+                  }
                   notifier.connect();
                 }
               },
