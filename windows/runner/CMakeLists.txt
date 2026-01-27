@@ -82,6 +82,7 @@ if(NATIVE_VIDEO_AVAILABLE)
   target_link_libraries(${BINARY_NAME} PRIVATE flutter_wrapper_plugin)
 endif()
 target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "winhttp.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # =============================================================================

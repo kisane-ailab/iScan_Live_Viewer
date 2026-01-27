@@ -1,16 +1,43 @@
 # iScan Live Viewer
 
-ZeroMQ 기반 카메라 스트리밍 데스크톱 애플리케이션
+ZeroMQ / HTTP MJPEG 기반 카메라 스트리밍 데스크톱 애플리케이션
 
 ## 개요
 
-iScan Live Viewer는 ZeroMQ 프로토콜을 사용하여 다중 카메라 영상을 실시간으로 수신하고 표시하는 Flutter Windows 데스크톱 애플리케이션입니다.
+iScan Live Viewer는 ZeroMQ 및 HTTP MJPEG 프로토콜을 사용하여 다중 카메라 영상을 실시간으로 수신하고 표시하는 Flutter Windows 데스크톱 애플리케이션입니다.
 
 ## 주요 기능
 
 - 다중 카메라 실시간 스트리밍 뷰어
-- ZeroMQ를 통한 고성능 영상 수신
+- ZeroMQ 및 HTTP MJPEG 프로토콜 지원 (자동 감지)
 - 깔끔한 타일 기반 카메라 레이아웃
+
+## 스트리밍 주소 형식
+
+주소 입력 시 프로토콜이 자동으로 감지됩니다.
+
+### ZMQ (PUB/SUB)
+```
+tcp://IP:PORT
+```
+예시:
+- `tcp://192.168.0.100:17002`
+
+### HTTP MJPEG
+```
+http://IP:PORT/livecam/mjpeg?cam=CAM_NAME
+```
+예시:
+- `http://192.168.0.100:18081/livecam/mjpeg?cam=left`
+- `http://192.168.0.100:18081/livecam/mjpeg?cam=right`
+- `http://192.168.0.100:18081/livecam/mjpeg?cam=single_1`
+- `http://192.168.0.100:18081/livecam/mjpeg?cam=single_2`
+
+| cam 파라미터 | 설명 |
+|-------------|------|
+| `left` | 좌측 카메라 (top_2) |
+| `right` | 우측 카메라 (top_1) |
+| `single_1` ~ `single_N` | 개별 카메라 |
 
 ## 기술 스택
 
@@ -18,7 +45,8 @@ iScan Live Viewer는 ZeroMQ 프로토콜을 사용하여 다중 카메라 영상
 - **상태관리**: Riverpod
 - **데이터 클래스**: Freezed
 - **라우팅**: Go Router
-- **통신**: DartZMQ (ZeroMQ)
+- **통신**: ZeroMQ (C++), WinHTTP (HTTP MJPEG)
+- **이미지 디코딩**: libjpeg-turbo (SIMD 가속)
 - **인스톨러**: Inno Setup
 
 ## 프로젝트 구조
