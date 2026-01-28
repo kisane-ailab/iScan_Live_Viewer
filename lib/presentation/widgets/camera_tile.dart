@@ -239,15 +239,26 @@ class CameraTile extends HookConsumerWidget {
                             collapsedIconColor: Colors.white38,
                             initiallyExpanded: true,
                             children: grouped.getPresetsFor(location).map((preset) {
+                              final isSelected = addressController.text == preset.url;
                               return ListTile(
                                 dense: true,
+                                leading: isSelected
+                                    ? const Icon(Icons.check_circle, color: Colors.green, size: 18)
+                                    : const SizedBox(width: 18),
                                 title: Text(
                                   preset.name,
-                                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.green : Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  ),
                                 ),
                                 subtitle: Text(
                                   preset.url,
-                                  style: const TextStyle(color: Colors.white38, fontSize: 10),
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.green.withOpacity(0.6) : Colors.white38,
+                                    fontSize: 10,
+                                  ),
                                 ),
                                 onTap: () async {
                                   addressController.text = preset.url;
