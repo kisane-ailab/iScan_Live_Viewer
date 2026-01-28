@@ -249,9 +249,10 @@ class CameraTile extends HookConsumerWidget {
                                   preset.url,
                                   style: const TextStyle(color: Colors.white38, fontSize: 10),
                                 ),
-                                onTap: () {
+                                onTap: () async {
                                   addressController.text = preset.url;
-                                  notifier.updateAddress(preset.url);
+                                  await notifier.updateAddress(preset.url);
+                                  notifier.connect();
                                   Navigator.pop(ctx);
                                 },
                               );
