@@ -44,7 +44,8 @@ class CameraViewModel extends _$CameraViewModel {
 
   /// 주소 변경 (로컬 저장소에 저장)
   Future<void> updateAddress(String address, {bool autoConnect = false}) async {
-    if (state.isConnected) {
+    // 기존 연결/연결중 상태면 해제
+    if (state.isConnected || state.isConnecting) {
       await disconnect();
     }
     // 로컬 저장소에 저장
@@ -52,6 +53,8 @@ class CameraViewModel extends _$CameraViewModel {
     state = state.copyWith(address: address);
 
     if (autoConnect) {
+      // 상태 안정화 대기
+      await Future.delayed(const Duration(milliseconds: 100));
       await connect();
     }
   }
