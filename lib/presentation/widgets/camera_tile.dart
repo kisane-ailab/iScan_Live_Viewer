@@ -217,15 +217,15 @@ class CameraTile extends HookConsumerWidget {
             backgroundColor: const Color(0xFF2A2A2A),
             title: const Text(
               '카메라 프리셋 선택',
-              style: TextStyle(color: Colors.white, fontSize: 16),
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
             ),
             content: SizedBox(
-              width: 300,
-              height: 400,
+              width: 350,
+              height: 450,
               child: presetsAsync.when(
                 data: (grouped) => grouped.locations.isEmpty
                     ? const Center(
-                        child: Text('프리셋이 없습니다', style: TextStyle(color: Colors.white54)),
+                        child: Text('프리셋이 없습니다', style: TextStyle(color: Colors.white54, fontSize: 14)),
                       )
                     : ListView(
                         shrinkWrap: true,
@@ -233,7 +233,7 @@ class CameraTile extends HookConsumerWidget {
                           return ExpansionTile(
                             title: Text(
                               location,
-                              style: const TextStyle(color: Colors.amber, fontSize: 14),
+                              style: const TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                             iconColor: Colors.white54,
                             collapsedIconColor: Colors.white38,
@@ -241,15 +241,14 @@ class CameraTile extends HookConsumerWidget {
                             children: grouped.getPresetsFor(location).map((preset) {
                               final isSelected = addressController.text == preset.url;
                               return ListTile(
-                                dense: true,
                                 leading: isSelected
-                                    ? const Icon(Icons.check_circle, color: Colors.green, size: 18)
-                                    : const SizedBox(width: 18),
+                                    ? const Icon(Icons.check_circle, color: Colors.green, size: 22)
+                                    : const SizedBox(width: 22),
                                 title: Text(
                                   preset.name,
                                   style: TextStyle(
                                     color: isSelected ? Colors.green : Colors.white,
-                                    fontSize: 13,
+                                    fontSize: 15,
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                   ),
                                 ),
@@ -257,7 +256,7 @@ class CameraTile extends HookConsumerWidget {
                                   preset.url,
                                   style: TextStyle(
                                     color: isSelected ? Colors.green.withOpacity(0.6) : Colors.white38,
-                                    fontSize: 10,
+                                    fontSize: 12,
                                   ),
                                 ),
                                 onTap: () async {
@@ -381,19 +380,19 @@ class CameraTile extends HookConsumerWidget {
                             children: [
                               Text(
                                 camera.presetLabel!,
-                                style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold),
+                                style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold),
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
                                 camera.address,
-                                style: const TextStyle(color: Colors.white38, fontSize: 10),
+                                style: const TextStyle(color: Colors.white38, fontSize: 11),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ],
                           )
                         : Text(
                             camera.address,
-                            style: const TextStyle(color: Colors.white70, fontSize: 13),
+                            style: const TextStyle(color: Colors.white70, fontSize: 14),
                             overflow: TextOverflow.ellipsis,
                           ),
                   ),
