@@ -252,7 +252,8 @@ class CameraTile extends HookConsumerWidget {
                                 onTap: () async {
                                   addressController.text = preset.url;
                                   Navigator.pop(ctx);
-                                  await notifier.updateAddress(preset.url, autoConnect: true);
+                                  final label = '${preset.location} - ${preset.name}';
+                                  await notifier.updateAddress(preset.url, presetLabel: label, autoConnect: true);
                                 },
                               );
                             }).toList(),
@@ -362,11 +363,28 @@ class CameraTile extends HookConsumerWidget {
                   )
                 : GestureDetector(
                     onDoubleTap: () => isEditing.value = true,
-                    child: Text(
-                      camera.address,
-                      style: const TextStyle(color: Colors.white70, fontSize: 13),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    child: camera.presetLabel != null
+                        ? Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                camera.presetLabel!,
+                                style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                camera.address,
+                                style: const TextStyle(color: Colors.white38, fontSize: 10),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          )
+                        : Text(
+                            camera.address,
+                            style: const TextStyle(color: Colors.white70, fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                   ),
           ),
           // 프리셋 선택 버튼 (항상 표시)

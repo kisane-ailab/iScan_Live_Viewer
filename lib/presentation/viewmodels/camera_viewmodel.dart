@@ -43,14 +43,15 @@ class CameraViewModel extends _$CameraViewModel {
   }
 
   /// 주소 변경 (로컬 저장소에 저장)
-  Future<void> updateAddress(String address, {bool autoConnect = false}) async {
+  /// [presetLabel] - 프리셋에서 선택한 경우 라벨 (예: "천상가옥 - top_1(R)")
+  Future<void> updateAddress(String address, {String? presetLabel, bool autoConnect = false}) async {
     // 기존 연결/연결중 상태면 해제
     if (state.isConnected || state.isConnecting) {
       await disconnect();
     }
     // 로컬 저장소에 저장
     await ref.read(cameraAddressSettingProvider(state.id).notifier).set(address);
-    state = state.copyWith(address: address);
+    state = state.copyWith(address: address, presetLabel: presetLabel);
 
     if (autoConnect) {
       // 상태 안정화 대기

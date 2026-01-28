@@ -19,6 +19,8 @@ final _privateConstructorUsedError = UnsupportedError(
 mixin _$CameraState {
   int get id => throw _privateConstructorUsedError;
   String get address => throw _privateConstructorUsedError;
+  String? get presetLabel =>
+      throw _privateConstructorUsedError; // 프리셋에서 선택한 경우 라벨 (예: "천상가옥 - top_1(R)")
   bool get isConnected => throw _privateConstructorUsedError;
   bool get isConnecting => throw _privateConstructorUsedError;
   bool get isReceiveTimeout => throw _privateConstructorUsedError;
@@ -50,6 +52,7 @@ abstract class $CameraStateCopyWith<$Res> {
   $Res call({
     int id,
     String address,
+    String? presetLabel,
     bool isConnected,
     bool isConnecting,
     bool isReceiveTimeout,
@@ -83,6 +86,7 @@ class _$CameraStateCopyWithImpl<$Res, $Val extends CameraState>
   $Res call({
     Object? id = null,
     Object? address = null,
+    Object? presetLabel = freezed,
     Object? isConnected = null,
     Object? isConnecting = null,
     Object? isReceiveTimeout = null,
@@ -107,6 +111,10 @@ class _$CameraStateCopyWithImpl<$Res, $Val extends CameraState>
                 ? _value.address
                 : address // ignore: cast_nullable_to_non_nullable
                       as String,
+            presetLabel: freezed == presetLabel
+                ? _value.presetLabel
+                : presetLabel // ignore: cast_nullable_to_non_nullable
+                      as String?,
             isConnected: null == isConnected
                 ? _value.isConnected
                 : isConnected // ignore: cast_nullable_to_non_nullable
@@ -177,6 +185,7 @@ abstract class _$$CameraStateImplCopyWith<$Res>
   $Res call({
     int id,
     String address,
+    String? presetLabel,
     bool isConnected,
     bool isConnecting,
     bool isReceiveTimeout,
@@ -209,6 +218,7 @@ class __$$CameraStateImplCopyWithImpl<$Res>
   $Res call({
     Object? id = null,
     Object? address = null,
+    Object? presetLabel = freezed,
     Object? isConnected = null,
     Object? isConnecting = null,
     Object? isReceiveTimeout = null,
@@ -233,6 +243,10 @@ class __$$CameraStateImplCopyWithImpl<$Res>
             ? _value.address
             : address // ignore: cast_nullable_to_non_nullable
                   as String,
+        presetLabel: freezed == presetLabel
+            ? _value.presetLabel
+            : presetLabel // ignore: cast_nullable_to_non_nullable
+                  as String?,
         isConnected: null == isConnected
             ? _value.isConnected
             : isConnected // ignore: cast_nullable_to_non_nullable
@@ -296,6 +310,7 @@ class _$CameraStateImpl implements _CameraState {
   const _$CameraStateImpl({
     required this.id,
     required this.address,
+    this.presetLabel,
     this.isConnected = false,
     this.isConnecting = false,
     this.isReceiveTimeout = false,
@@ -316,6 +331,9 @@ class _$CameraStateImpl implements _CameraState {
   final int id;
   @override
   final String address;
+  @override
+  final String? presetLabel;
+  // 프리셋에서 선택한 경우 라벨 (예: "천상가옥 - top_1(R)")
   @override
   @JsonKey()
   final bool isConnected;
@@ -368,7 +386,7 @@ class _$CameraStateImpl implements _CameraState {
 
   @override
   String toString() {
-    return 'CameraState(id: $id, address: $address, isConnected: $isConnected, isConnecting: $isConnecting, isReceiveTimeout: $isReceiveTimeout, imageData: $imageData, decodedImage: $decodedImage, textureId: $textureId, header: $header, logs: $logs, frameCount: $frameCount, receiveFps: $receiveFps, renderFps: $renderFps, error: $error, lastFrameTime: $lastFrameTime)';
+    return 'CameraState(id: $id, address: $address, presetLabel: $presetLabel, isConnected: $isConnected, isConnecting: $isConnecting, isReceiveTimeout: $isReceiveTimeout, imageData: $imageData, decodedImage: $decodedImage, textureId: $textureId, header: $header, logs: $logs, frameCount: $frameCount, receiveFps: $receiveFps, renderFps: $renderFps, error: $error, lastFrameTime: $lastFrameTime)';
   }
 
   @override
@@ -378,6 +396,8 @@ class _$CameraStateImpl implements _CameraState {
             other is _$CameraStateImpl &&
             (identical(other.id, id) || other.id == id) &&
             (identical(other.address, address) || other.address == address) &&
+            (identical(other.presetLabel, presetLabel) ||
+                other.presetLabel == presetLabel) &&
             (identical(other.isConnected, isConnected) ||
                 other.isConnected == isConnected) &&
             (identical(other.isConnecting, isConnecting) ||
@@ -407,6 +427,7 @@ class _$CameraStateImpl implements _CameraState {
     runtimeType,
     id,
     address,
+    presetLabel,
     isConnected,
     isConnecting,
     isReceiveTimeout,
@@ -435,6 +456,7 @@ abstract class _CameraState implements CameraState {
   const factory _CameraState({
     required final int id,
     required final String address,
+    final String? presetLabel,
     final bool isConnected,
     final bool isConnecting,
     final bool isReceiveTimeout,
@@ -454,6 +476,8 @@ abstract class _CameraState implements CameraState {
   int get id;
   @override
   String get address;
+  @override
+  String? get presetLabel; // 프리셋에서 선택한 경우 라벨 (예: "천상가옥 - top_1(R)")
   @override
   bool get isConnected;
   @override

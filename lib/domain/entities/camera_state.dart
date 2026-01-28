@@ -10,6 +10,7 @@ class CameraState with _$CameraState {
   const factory CameraState({
     required int id,
     required String address,
+    String? presetLabel, // 프리셋에서 선택한 경우 라벨 (예: "천상가옥 - top_1(R)")
     @Default(false) bool isConnected,
     @Default(false) bool isConnecting,
     @Default(false) bool isReceiveTimeout,
