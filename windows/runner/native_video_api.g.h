@@ -75,6 +75,8 @@ class FrameInfo {
     const int64_t* bbox_y,
     const int64_t* bbox_w,
     const int64_t* bbox_h,
+    const int64_t* width,
+    const int64_t* height,
     int64_t frame_count);
 
   const std::string* cam_idx() const;
@@ -109,6 +111,14 @@ class FrameInfo {
   void set_bbox_h(const int64_t* value_arg);
   void set_bbox_h(int64_t value_arg);
 
+  const int64_t* width() const;
+  void set_width(const int64_t* value_arg);
+  void set_width(int64_t value_arg);
+
+  const int64_t* height() const;
+  void set_height(const int64_t* value_arg);
+  void set_height(int64_t value_arg);
+
   int64_t frame_count() const;
   void set_frame_count(int64_t value_arg);
 
@@ -127,6 +137,8 @@ class FrameInfo {
   std::optional<int64_t> bbox_y_;
   std::optional<int64_t> bbox_w_;
   std::optional<int64_t> bbox_h_;
+  std::optional<int64_t> width_;
+  std::optional<int64_t> height_;
   int64_t frame_count_;
 
 };

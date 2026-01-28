@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../core/constants/app_constants.dart';
-import '../../core/providers/logger_provider.dart';
+import '../../infrastructure/constants/app_constants.dart';
+import '../../infrastructure/logger/logger_provider.dart';
 import '../../domain/entities/camera_state.dart';
 import '../../infrastructure/local_storage/camera_settings.dart';
 import '../../infrastructure/native/native_video_renderer.dart';
@@ -159,6 +159,8 @@ class CameraViewModel extends _$CameraViewModel {
         'cam_num': info.camNum,
         'brightness': info.brightness,
         'motion': info.motion,
+        'width': info.width,
+        'height': info.height,
       };
 
       if (info.bboxW != null && info.bboxH != null && info.bboxW! > 0 && info.bboxH! > 0) {
@@ -275,4 +277,16 @@ class CameraCount extends _$CameraCount {
     await ref.read(cameraCountSettingProvider.notifier).set(count);
     state = count;
   }
+}
+
+/// 화면 비율 모드
+/// - "contain": 원본 비율 유지 (기본)
+/// - "fill": 꽉 차게 늘림
+/// - "16:9", "4:3", "1:1", "9:16": 지정 비율
+@riverpod
+class CameraAspectRatio extends _$CameraAspectRatio {
+  @override
+  String build(int id) => 'contain'; // 기본값: 원본 비율 유지
+
+  void set(String mode) => state = mode;
 }

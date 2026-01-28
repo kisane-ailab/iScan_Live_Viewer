@@ -17,6 +17,8 @@ class FrameInfo {
     this.bboxY,
     this.bboxW,
     this.bboxH,
+    this.width,
+    this.height,
     required this.frameCount,
   });
 
@@ -28,6 +30,8 @@ class FrameInfo {
   int? bboxY;
   int? bboxW;
   int? bboxH;
+  int? width;   // 영상 가로 해상도
+  int? height;  // 영상 세로 해상도
   int frameCount;
 }
 

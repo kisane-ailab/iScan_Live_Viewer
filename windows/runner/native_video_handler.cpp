@@ -788,6 +788,12 @@ ErrorOr<std::optional<FrameInfo>> NativeVideoHandler::GetFrameInfo(int64_t textu
   info.set_brightness(stream->current_brightness);
   info.set_motion(stream->current_motion);
 
+  // Set resolution
+  if (stream->frame_width > 0 && stream->frame_height > 0) {
+    info.set_width(stream->frame_width);
+    info.set_height(stream->frame_height);
+  }
+
   // Set bbox if available
   if (stream->current_bbox_w > 0 && stream->current_bbox_h > 0) {
     info.set_bbox_x(stream->current_bbox_x);
