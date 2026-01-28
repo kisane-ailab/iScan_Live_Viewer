@@ -36,6 +36,8 @@ class FrameInfo {
     this.bboxY,
     this.bboxW,
     this.bboxH,
+    this.width,
+    this.height,
     required this.frameCount,
   });
 
@@ -55,6 +57,10 @@ class FrameInfo {
 
   int? bboxH;
 
+  int? width;
+
+  int? height;
+
   int frameCount;
 
   Object encode() {
@@ -67,6 +73,8 @@ class FrameInfo {
       bboxY,
       bboxW,
       bboxH,
+      width,
+      height,
       frameCount,
     ];
   }
@@ -82,7 +90,9 @@ class FrameInfo {
       bboxY: result[5] as int?,
       bboxW: result[6] as int?,
       bboxH: result[7] as int?,
-      frameCount: result[8]! as int,
+      width: result[8] as int?,
+      height: result[9] as int?,
+      frameCount: result[10]! as int,
     );
   }
 }

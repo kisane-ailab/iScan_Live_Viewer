@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:dartzmq/dartzmq.dart';
 import 'package:logger/logger.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../core/providers/logger_provider.dart';
+import '../logger/logger_provider.dart';
 
 part 'zmq_client.g.dart';
 

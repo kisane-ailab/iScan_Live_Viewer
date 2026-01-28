@@ -7,7 +7,7 @@ part of 'camera_settings.dart';
 // **************************************************************************
 
 String _$cameraCountSettingHash() =>
-    r'02353df7aa2defb29c4b1510faa8469117950582';
+    r'84e15ffc7655c41760ea570cedd4bd2fc3908926';
 
 /// 카메라 갯수 설정 (로컬 저장)
 ///
@@ -26,7 +26,7 @@ final cameraCountSettingProvider =
 
 typedef _$CameraCountSetting = Notifier<int>;
 String _$cameraAddressSettingHash() =>
-    r'c229da5d0d850acb19538a35944472f9e1561d18';
+    r'cb2623c7c231692b4932c97c916551cc9459ab5e';
 
 /// Copied from Dart SDK
 class _SystemHash {

@@ -1,5 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../../core/constants/app_constants.dart';
+import '../constants/app_constants.dart';
 import 'shared_preferences.dart';
 
 part 'camera_settings.g.dart';

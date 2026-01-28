@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import '../../infrastructure/supabase/camera_preset.dart';
 import '../viewmodels/camera_viewmodel.dart';
 
 class CameraTile extends HookConsumerWidget {
@@ -9,10 +10,20 @@ class CameraTile extends HookConsumerWidget {
 
   const CameraTile({super.key, required this.cameraId});
 
+  // 비율 옵션: 모드명 -> (라벨, aspectRatio 또는 null)
+  static const List<Map<String, dynamic>> _aspectRatioOptions = [
+    {'mode': 'contain', 'label': '원본비율'},
+    {'mode': 'fill', 'label': '꽉참'},
+    {'mode': '16:9', 'label': '16:9', 'ratio': 16 / 9},
+    {'mode': '4:3', 'label': '4:3', 'ratio': 4 / 3},
+    {'mode': '1:1', 'label': '1:1', 'ratio': 1.0},
+  ];
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final camera = ref.watch(cameraViewModelProvider(cameraId));
     final isLogExpanded = ref.watch(cameraLogExpandedProvider(cameraId));
+    final aspectRatio = ref.watch(cameraAspectRatioProvider(cameraId));
     final notifier = ref.read(cameraViewModelProvider(cameraId).notifier);
 
     // Hooks로 컨트롤러 및 상태 관리
@@ -21,9 +32,6 @@ class CameraTile extends HookConsumerWidget {
     final headerScrollController = useScrollController();
     final isEditing = useState(false);
     final logFontSize = useState(9.0);
-
-    // HTTP 카메라 선택 상태
-    final selectedHttpCam = useState<String?>(null);
 
     // 테두리 색상 결정: 수신 타임아웃 시 빨간색
     final borderColor = camera.isReceiveTimeout
@@ -51,7 +59,7 @@ class CameraTile extends HookConsumerWidget {
             isLogExpanded,
             addressController,
             isEditing,
-            selectedHttpCam,
+            aspectRatio,
           ),
           Expanded(
             child: Stack(
@@ -63,7 +71,7 @@ class CameraTile extends HookConsumerWidget {
                         ? Stack(
                             children: [
                               Positioned.fill(
-                                child: _buildImageWidget(camera),
+                                child: _buildImageWithRatio(camera, aspectRatio),
                               ),
                               // 수신 타임아웃 오버레이
                               if (camera.isReceiveTimeout)
@@ -148,7 +156,7 @@ class CameraTile extends HookConsumerWidget {
     );
   }
 
-  // HTTP 카메라 옵션 목록
+  // HTTP 카메라 옵션 목록 (폴백용)
   static const List<String> _httpCamOptions = [
     'left',
     'right',
@@ -182,10 +190,108 @@ class CameraTile extends HookConsumerWidget {
 
   // HTTP 전체 URL 생성
   String _buildHttpUrl(String baseUrl, String cam) {
-    final base = baseUrl.trim();
+    var base = baseUrl.trim();
     // 이미 /livecam이 포함되어 있으면 기본 URL만 추출
-    final cleanBase = _getHttpBaseUrl(base);
+    var cleanBase = _getHttpBaseUrl(base);
+    // 끝에 슬래시 있으면 제거
+    while (cleanBase.endsWith('/')) {
+      cleanBase = cleanBase.substring(0, cleanBase.length - 1);
+    }
     return '$cleanBase/livecam/mjpeg?cam=$cam';
+  }
+
+  /// 프리셋 선택 다이얼로그
+  void _showPresetDialog(
+    BuildContext context,
+    WidgetRef ref,
+    TextEditingController addressController,
+    notifier,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Consumer(
+        builder: (context, ref, _) {
+          final presetsAsync = ref.watch(cameraPresetsProvider);
+
+          return AlertDialog(
+            backgroundColor: const Color(0xFF2A2A2A),
+            title: const Text(
+              '카메라 프리셋 선택',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            content: SizedBox(
+              width: 300,
+              height: 400,
+              child: presetsAsync.when(
+                data: (grouped) => grouped.locations.isEmpty
+                    ? const Center(
+                        child: Text('프리셋이 없습니다', style: TextStyle(color: Colors.white54)),
+                      )
+                    : ListView(
+                        shrinkWrap: true,
+                        children: grouped.locations.map((location) {
+                          return ExpansionTile(
+                            title: Text(
+                              location,
+                              style: const TextStyle(color: Colors.amber, fontSize: 14),
+                            ),
+                            iconColor: Colors.white54,
+                            collapsedIconColor: Colors.white38,
+                            initiallyExpanded: true,
+                            children: grouped.getPresetsFor(location).map((preset) {
+                              return ListTile(
+                                dense: true,
+                                title: Text(
+                                  preset.name,
+                                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                                ),
+                                subtitle: Text(
+                                  preset.url,
+                                  style: const TextStyle(color: Colors.white38, fontSize: 10),
+                                ),
+                                onTap: () {
+                                  addressController.text = preset.url;
+                                  notifier.updateAddress(preset.url);
+                                  Navigator.pop(ctx);
+                                },
+                              );
+                            }).toList(),
+                          );
+                        }).toList(),
+                      ),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error, color: Colors.red, size: 48),
+                      const SizedBox(height: 8),
+                      Text('로드 실패: $e', style: const TextStyle(color: Colors.red)),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => ref.invalidate(cameraPresetsProvider),
+                        child: const Text('다시 시도'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh, color: Colors.cyan),
+                tooltip: '새로고침',
+                onPressed: () => ref.invalidate(cameraPresetsProvider),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('닫기'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildHeader(
@@ -196,9 +302,15 @@ class CameraTile extends HookConsumerWidget {
     bool isLogExpanded,
     TextEditingController addressController,
     ValueNotifier<bool> isEditing,
-    ValueNotifier<String?> selectedHttpCam,
+    String aspectRatioMode,
   ) {
     final isHttp = _isHttpAddress(addressController.text);
+    // 현재 비율 라벨 찾기
+    final currentOption = _aspectRatioOptions.firstWhere(
+      (o) => o['mode'] == aspectRatioMode,
+      orElse: () => _aspectRatioOptions[0],
+    );
+    final currentRatioLabel = currentOption['label'] as String;
 
     return Container(
       height: 48,
@@ -257,34 +369,34 @@ class CameraTile extends HookConsumerWidget {
                     ),
                   ),
           ),
-          // HTTP일 때 카메라 선택 드롭다운 표시
-          if (isHttp && !camera.isConnected) ...[
+          // 프리셋 선택 버튼 (항상 표시)
+          const SizedBox(width: 4),
+          IconButton(
+            icon: const Icon(Icons.list_alt, color: Colors.cyan, size: 18),
+            tooltip: '프리셋에서 선택',
+            onPressed: () => _showPresetDialog(context, ref, addressController, notifier),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+          ),
+          // HTTP 기본 URL일 때 카메라 선택 팝업 버튼
+          if (isHttp && !camera.isConnected && !addressController.text.contains('/livecam')) ...[
             const SizedBox(width: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF333333),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: Colors.white24),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: selectedHttpCam.value ?? _httpCamOptions.first,
-                  dropdownColor: const Color(0xFF333333),
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                  icon: const Icon(Icons.arrow_drop_down, color: Colors.white54, size: 16),
-                  isDense: true,
-                  items: _httpCamOptions.map((cam) {
-                    return DropdownMenuItem(
-                      value: cam,
-                      child: Text(cam, style: const TextStyle(fontSize: 12)),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    selectedHttpCam.value = value;
-                  },
-                ),
-              ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.camera_alt, color: Colors.amber, size: 18),
+              tooltip: '카메라 선택',
+              color: const Color(0xFF333333),
+              onSelected: (cam) {
+                final fullUrl = _buildHttpUrl(addressController.text, cam);
+                addressController.text = fullUrl;
+                notifier.updateAddress(fullUrl);
+              },
+              itemBuilder: (context) => _httpCamOptions.map((cam) {
+                return PopupMenuItem(
+                  value: cam,
+                  height: 36,
+                  child: Text(cam, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                );
+              }).toList(),
             ),
           ],
           if (isEditing.value)
@@ -308,14 +420,6 @@ class CameraTile extends HookConsumerWidget {
                 if (camera.isConnected) {
                   notifier.disconnect();
                 } else {
-                  // HTTP면 선택된 카메라로 URL 조합
-                  if (isHttp) {
-                    final baseUrl = _getHttpBaseUrl(addressController.text);
-                    final cam = selectedHttpCam.value ?? _httpCamOptions.first;
-                    final fullUrl = _buildHttpUrl(baseUrl, cam);
-                    notifier.updateAddress(fullUrl);
-                    addressController.text = fullUrl;
-                  }
                   notifier.connect();
                 }
               },
@@ -336,35 +440,131 @@ class CameraTile extends HookConsumerWidget {
               constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
               tooltip: '로그 토글',
             ),
+            // 비율 선택 버튼
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.aspect_ratio, color: Colors.white54, size: 16),
+              tooltip: '화면 비율: $currentRatioLabel',
+              color: const Color(0xFF333333),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              onSelected: (mode) {
+                ref.read(cameraAspectRatioProvider(cameraId).notifier).set(mode);
+              },
+              itemBuilder: (context) => _aspectRatioOptions.map((option) {
+                final mode = option['mode'] as String;
+                final label = option['label'] as String;
+                final isSelected = mode == aspectRatioMode;
+                return PopupMenuItem(
+                  value: mode,
+                  height: 36,
+                  child: Row(
+                    children: [
+                      if (isSelected)
+                        const Icon(Icons.check, color: Colors.cyan, size: 14)
+                      else
+                        const SizedBox(width: 14),
+                      const SizedBox(width: 8),
+                      Text(label, style: TextStyle(
+                        color: isSelected ? Colors.cyan : Colors.white,
+                        fontSize: 13,
+                      )),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
           ],
         ],
       ),
     );
   }
 
-  /// Native Texture 렌더링 (고속, 제로카피)
-  Widget _buildImageWidget(camera) {
-    // Native Texture가 있으면 Texture 위젯으로 고속 렌더링
-    if (camera.textureId != null) {
-      return Texture(
-        textureId: camera.textureId!,
-        filterQuality: FilterQuality.low, // 성능 우선
+  /// 비율 모드에 따라 이미지 위젯 빌드
+  Widget _buildImageWithRatio(camera, String ratioMode) {
+    // 비율 모드별 처리
+    final option = _aspectRatioOptions.firstWhere(
+      (o) => o['mode'] == ratioMode,
+      orElse: () => _aspectRatioOptions[0],
+    );
+
+    // 지정 비율 (16:9, 4:3 등) - 레터박스 방식
+    if (option['ratio'] != null) {
+      final targetRatio = option['ratio'] as double;
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final parentWidth = constraints.maxWidth;
+          final parentHeight = constraints.maxHeight;
+          final parentRatio = parentWidth / parentHeight;
+
+          double boxWidth, boxHeight;
+          if (parentRatio > targetRatio) {
+            // 부모가 더 넓음 -> 높이 맞춤, 좌우 레터박스
+            boxHeight = parentHeight;
+            boxWidth = boxHeight * targetRatio;
+          } else {
+            // 부모가 더 좁음 -> 너비 맞춤, 상하 레터박스
+            boxWidth = parentWidth;
+            boxHeight = boxWidth / targetRatio;
+          }
+
+          return Container(
+            color: Colors.black,
+            child: Center(
+              child: ClipRect(
+                child: SizedBox(
+                  width: boxWidth,
+                  height: boxHeight,
+                  child: _buildRawImage(camera),
+                ),
+              ),
+            ),
+          );
+        },
       );
     }
 
-    // fallback: Flutter 기본 이미지 디코더
+    // fill: 꽉 차게 늘림
+    if (ratioMode == 'fill') {
+      return _buildRawImage(camera, BoxFit.fill);
+    }
+
+    // contain: 원본 비율 유지 (기본)
+    return _buildRawImage(camera, BoxFit.contain);
+  }
+
+  /// 이미지 위젯 (비율 없이 순수 이미지만)
+  Widget _buildRawImage(camera, [BoxFit fit = BoxFit.cover]) {
+    if (camera.textureId != null) {
+      // 해상도 정보 가져오기
+      final header = camera.header?['header'] as Map<String, dynamic>?;
+      final w = (header?['width'] as int?) ?? 1920;
+      final h = (header?['height'] as int?) ?? 1080;
+
+      return FittedBox(
+        fit: fit,
+        clipBehavior: Clip.hardEdge,
+        child: SizedBox(
+          width: w.toDouble(),
+          height: h.toDouble(),
+          child: Texture(
+            textureId: camera.textureId!,
+            filterQuality: FilterQuality.low,
+          ),
+        ),
+      );
+    }
+
     if (camera.imageData != null) {
       return Image.memory(
         camera.imageData!,
         gaplessPlayback: true,
-        fit: BoxFit.contain,
+        fit: fit,
         errorBuilder: (_, __, ___) => _buildPlaceholder('디코딩 실패'),
       );
     }
 
     return _buildPlaceholder('이미지 없음');
   }
-
   Widget _buildPlaceholder(String text) {
     return Center(
       child: Text(
@@ -446,11 +646,14 @@ class CameraTile extends HookConsumerWidget {
               '${camera.receiveFps.toStringAsFixed(0)}fps',
               style: const TextStyle(color: Colors.white, fontSize: 10),
             ),
-            const SizedBox(width: 8),
-            Text(
-              '#${camera.frameCount}',
-              style: const TextStyle(color: Colors.white54, fontSize: 10),
-            ),
+            // 해상도 표시
+            if (camera.header != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                _getResolutionText(camera.header),
+                style: const TextStyle(color: Colors.white54, fontSize: 10),
+              ),
+            ],
           ] else if (camera.error != null)
             const Icon(Icons.error_outline, color: Colors.red, size: 14)
           else
@@ -458,6 +661,19 @@ class CameraTile extends HookConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// header에서 해상도 텍스트 추출
+  String _getResolutionText(Map<String, dynamic>? headerData) {
+    if (headerData == null) return '';
+    final header = headerData['header'] as Map<String, dynamic>?;
+    if (header == null) return '';
+    final width = header['width'];
+    final height = header['height'];
+    if (width != null && height != null) {
+      return '${width}x$height';
+    }
+    return '';
   }
 
   Widget _buildHeaderInfo(camera) {

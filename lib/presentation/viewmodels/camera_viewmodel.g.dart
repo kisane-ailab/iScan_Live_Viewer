@@ -6,7 +6,7 @@ part of 'camera_viewmodel.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$cameraViewModelHash() => r'3306caf6810f7a83d4184789f269695b1284987e';
+String _$cameraViewModelHash() => r'93cb31a19cc918f7b9aeb52f125c6d17124cf471';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -331,5 +331,167 @@ final cameraCountProvider =
     );
 
 typedef _$CameraCount = AutoDisposeNotifier<int>;
+String _$cameraAspectRatioHash() => r'a22cd877b21ad8985d4ea3e9c85d3b4e7ed3b825';
+
+abstract class _$CameraAspectRatio
+    extends BuildlessAutoDisposeNotifier<String> {
+  late final int id;
+
+  String build(int id);
+}
+
+/// 화면 비율 모드
+/// - "contain": 원본 비율 유지 (기본)
+/// - "fill": 꽉 차게 늘림
+/// - "16:9", "4:3", "1:1", "9:16": 지정 비율
+///
+/// Copied from [CameraAspectRatio].
+@ProviderFor(CameraAspectRatio)
+const cameraAspectRatioProvider = CameraAspectRatioFamily();
+
+/// 화면 비율 모드
+/// - "contain": 원본 비율 유지 (기본)
+/// - "fill": 꽉 차게 늘림
+/// - "16:9", "4:3", "1:1", "9:16": 지정 비율
+///
+/// Copied from [CameraAspectRatio].
+class CameraAspectRatioFamily extends Family<String> {
+  /// 화면 비율 모드
+  /// - "contain": 원본 비율 유지 (기본)
+  /// - "fill": 꽉 차게 늘림
+  /// - "16:9", "4:3", "1:1", "9:16": 지정 비율
+  ///
+  /// Copied from [CameraAspectRatio].
+  const CameraAspectRatioFamily();
+
+  /// 화면 비율 모드
+  /// - "contain": 원본 비율 유지 (기본)
+  /// - "fill": 꽉 차게 늘림
+  /// - "16:9", "4:3", "1:1", "9:16": 지정 비율
+  ///
+  /// Copied from [CameraAspectRatio].
+  CameraAspectRatioProvider call(int id) {
+    return CameraAspectRatioProvider(id);
+  }
+
+  @override
+  CameraAspectRatioProvider getProviderOverride(
+    covariant CameraAspectRatioProvider provider,
+  ) {
+    return call(provider.id);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'cameraAspectRatioProvider';
+}
+
+/// 화면 비율 모드
+/// - "contain": 원본 비율 유지 (기본)
+/// - "fill": 꽉 차게 늘림
+/// - "16:9", "4:3", "1:1", "9:16": 지정 비율
+///
+/// Copied from [CameraAspectRatio].
+class CameraAspectRatioProvider
+    extends AutoDisposeNotifierProviderImpl<CameraAspectRatio, String> {
+  /// 화면 비율 모드
+  /// - "contain": 원본 비율 유지 (기본)
+  /// - "fill": 꽉 차게 늘림
+  /// - "16:9", "4:3", "1:1", "9:16": 지정 비율
+  ///
+  /// Copied from [CameraAspectRatio].
+  CameraAspectRatioProvider(int id)
+    : this._internal(
+        () => CameraAspectRatio()..id = id,
+        from: cameraAspectRatioProvider,
+        name: r'cameraAspectRatioProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$cameraAspectRatioHash,
+        dependencies: CameraAspectRatioFamily._dependencies,
+        allTransitiveDependencies:
+            CameraAspectRatioFamily._allTransitiveDependencies,
+        id: id,
+      );
+
+  CameraAspectRatioProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.id,
+  }) : super.internal();
+
+  final int id;
+
+  @override
+  String runNotifierBuild(covariant CameraAspectRatio notifier) {
+    return notifier.build(id);
+  }
+
+  @override
+  Override overrideWith(CameraAspectRatio Function() create) {
+    return ProviderOverride(
+      origin: this,
+      override: CameraAspectRatioProvider._internal(
+        () => create()..id = id,
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        id: id,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeNotifierProviderElement<CameraAspectRatio, String>
+  createElement() {
+    return _CameraAspectRatioProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is CameraAspectRatioProvider && other.id == id;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, id.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin CameraAspectRatioRef on AutoDisposeNotifierProviderRef<String> {
+  /// The parameter `id` of this provider.
+  int get id;
+}
+
+class _CameraAspectRatioProviderElement
+    extends AutoDisposeNotifierProviderElement<CameraAspectRatio, String>
+    with CameraAspectRatioRef {
+  _CameraAspectRatioProviderElement(super.provider);
+
+  @override
+  int get id => (origin as CameraAspectRatioProvider).id;
+}
+
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

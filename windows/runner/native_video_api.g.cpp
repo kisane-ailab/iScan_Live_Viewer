@@ -41,6 +41,8 @@ FrameInfo::FrameInfo(
   const int64_t* bbox_y,
   const int64_t* bbox_w,
   const int64_t* bbox_h,
+  const int64_t* width,
+  const int64_t* height,
   int64_t frame_count)
  : cam_idx_(cam_idx ? std::optional<std::string>(*cam_idx) : std::nullopt),
     cam_num_(cam_num ? std::optional<std::string>(*cam_num) : std::nullopt),
@@ -50,6 +52,8 @@ FrameInfo::FrameInfo(
     bbox_y_(bbox_y ? std::optional<int64_t>(*bbox_y) : std::nullopt),
     bbox_w_(bbox_w ? std::optional<int64_t>(*bbox_w) : std::nullopt),
     bbox_h_(bbox_h ? std::optional<int64_t>(*bbox_h) : std::nullopt),
+    width_(width ? std::optional<int64_t>(*width) : std::nullopt),
+    height_(height ? std::optional<int64_t>(*height) : std::nullopt),
     frame_count_(frame_count) {}
 
 const std::string* FrameInfo::cam_idx() const {
@@ -156,6 +160,32 @@ void FrameInfo::set_bbox_h(int64_t value_arg) {
 }
 
 
+const int64_t* FrameInfo::width() const {
+  return width_ ? &(*width_) : nullptr;
+}
+
+void FrameInfo::set_width(const int64_t* value_arg) {
+  width_ = value_arg ? std::optional<int64_t>(*value_arg) : std::nullopt;
+}
+
+void FrameInfo::set_width(int64_t value_arg) {
+  width_ = value_arg;
+}
+
+
+const int64_t* FrameInfo::height() const {
+  return height_ ? &(*height_) : nullptr;
+}
+
+void FrameInfo::set_height(const int64_t* value_arg) {
+  height_ = value_arg ? std::optional<int64_t>(*value_arg) : std::nullopt;
+}
+
+void FrameInfo::set_height(int64_t value_arg) {
+  height_ = value_arg;
+}
+
+
 int64_t FrameInfo::frame_count() const {
   return frame_count_;
 }
@@ -167,7 +197,7 @@ void FrameInfo::set_frame_count(int64_t value_arg) {
 
 EncodableList FrameInfo::ToEncodableList() const {
   EncodableList list;
-  list.reserve(9);
+  list.reserve(11);
   list.push_back(cam_idx_ ? EncodableValue(*cam_idx_) : EncodableValue());
   list.push_back(cam_num_ ? EncodableValue(*cam_num_) : EncodableValue());
   list.push_back(brightness_ ? EncodableValue(*brightness_) : EncodableValue());
@@ -176,13 +206,15 @@ EncodableList FrameInfo::ToEncodableList() const {
   list.push_back(bbox_y_ ? EncodableValue(*bbox_y_) : EncodableValue());
   list.push_back(bbox_w_ ? EncodableValue(*bbox_w_) : EncodableValue());
   list.push_back(bbox_h_ ? EncodableValue(*bbox_h_) : EncodableValue());
+  list.push_back(width_ ? EncodableValue(*width_) : EncodableValue());
+  list.push_back(height_ ? EncodableValue(*height_) : EncodableValue());
   list.push_back(EncodableValue(frame_count_));
   return list;
 }
 
 FrameInfo FrameInfo::FromEncodableList(const EncodableList& list) {
   FrameInfo decoded(
-    std::get<int64_t>(list[8]));
+    std::get<int64_t>(list[10]));
   auto& encodable_cam_idx = list[0];
   if (!encodable_cam_idx.IsNull()) {
     decoded.set_cam_idx(std::get<std::string>(encodable_cam_idx));
@@ -214,6 +246,14 @@ FrameInfo FrameInfo::FromEncodableList(const EncodableList& list) {
   auto& encodable_bbox_h = list[7];
   if (!encodable_bbox_h.IsNull()) {
     decoded.set_bbox_h(std::get<int64_t>(encodable_bbox_h));
+  }
+  auto& encodable_width = list[8];
+  if (!encodable_width.IsNull()) {
+    decoded.set_width(std::get<int64_t>(encodable_width));
+  }
+  auto& encodable_height = list[9];
+  if (!encodable_height.IsNull()) {
+    decoded.set_height(std::get<int64_t>(encodable_height));
   }
   return decoded;
 }
