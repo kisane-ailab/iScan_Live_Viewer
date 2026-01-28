@@ -251,9 +251,8 @@ class CameraTile extends HookConsumerWidget {
                                 ),
                                 onTap: () async {
                                   addressController.text = preset.url;
-                                  await notifier.updateAddress(preset.url);
-                                  notifier.connect();
                                   Navigator.pop(ctx);
+                                  await notifier.updateAddress(preset.url, autoConnect: true);
                                 },
                               );
                             }).toList(),

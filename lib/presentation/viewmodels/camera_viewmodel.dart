@@ -43,13 +43,17 @@ class CameraViewModel extends _$CameraViewModel {
   }
 
   /// 주소 변경 (로컬 저장소에 저장)
-  Future<void> updateAddress(String address) async {
+  Future<void> updateAddress(String address, {bool autoConnect = false}) async {
     if (state.isConnected) {
-      disconnect();
+      await disconnect();
     }
     // 로컬 저장소에 저장
     await ref.read(cameraAddressSettingProvider(state.id).notifier).set(address);
     state = state.copyWith(address: address);
+
+    if (autoConnect) {
+      await connect();
+    }
   }
 
   /// 로그 추가
