@@ -205,12 +205,24 @@ ErrorOr<int64_t> NativeVideoHandler::Initialize(int64_t texture_key) {
   sprintf_s(msg, "[NativeVideoHandler] Initialize called for texture_key: %lld\n", texture_key);
   OutputDebugStringA(msg);
 
-  std::lock_guard<std::mutex> lock(streams_mutex_);
-
-  // Check if stream already exists
-  if (streams_.find(texture_key) != streams_.end()) {
-    return FlutterError("already_initialized", "Stream already initialized for this texture_key");
+  // If stream already exists, clean it up first (handles rapid reconnection)
+  bool needs_cleanup = false;
+  {
+    std::lock_guard<std::mutex> lock(streams_mutex_);
+    needs_cleanup = (streams_.find(texture_key) != streams_.end());
   }
+
+  if (needs_cleanup) {
+    OutputDebugStringA("[NativeVideoHandler] Existing stream found, cleaning up first...\n");
+    CleanupStream(texture_key);
+    {
+      std::lock_guard<std::mutex> lock(streams_mutex_);
+      streams_.erase(texture_key);
+    }
+    OutputDebugStringA("[NativeVideoHandler] Existing stream cleaned up\n");
+  }
+
+  std::lock_guard<std::mutex> lock(streams_mutex_);
 
   // Create new stream
   auto stream = std::make_unique<VideoStream>();

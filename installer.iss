@@ -1,11 +1,11 @@
 [Setup]
 AppName=iScan Live Viewer
-AppVersion=1.0.0
+AppVersion=1.0.1
 AppPublisher=iScan
 DefaultDirName={autopf}\iScan Live Viewer
 DefaultGroupName=iScan Live Viewer
 OutputDir=installer
-OutputBaseFilename=iScan_Live_Viewer_Setup
+OutputBaseFilename=iScan_Live_Viewer_Setup_v1.0.1
 Compression=lzma2
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible

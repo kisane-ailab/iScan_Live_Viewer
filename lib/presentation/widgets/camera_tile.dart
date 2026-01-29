@@ -259,11 +259,13 @@ class CameraTile extends HookConsumerWidget {
                                     fontSize: 12,
                                   ),
                                 ),
-                                onTap: () async {
+                                onTap: () {
                                   addressController.text = preset.url;
-                                  Navigator.pop(ctx);
                                   final label = '${preset.location} - ${preset.name}';
-                                  await notifier.updateAddress(preset.url, presetLabel: label, autoConnect: true);
+                                  // 다이얼로그 먼저 닫고 비동기 작업 시작 (await 없이)
+                                  Navigator.pop(ctx);
+                                  // unawaited - 다이얼로그 닫힌 후 백그라운드에서 연결
+                                  notifier.updateAddress(preset.url, presetLabel: label, autoConnect: true);
                                 },
                               );
                             }).toList(),

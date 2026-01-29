@@ -48,12 +48,14 @@ class CameraViewModel extends _$CameraViewModel {
     // 기존 연결/연결중 상태면 해제
     if (state.isConnected || state.isConnecting) {
       await disconnect();
+      // 네이티브 리소스 정리 대기 (스레드 종료 등)
+      await Future.delayed(const Duration(milliseconds: 300));
     }
     // 로컬 저장소에 저장
     await ref.read(cameraAddressSettingProvider(state.id).notifier).set(address);
     state = state.copyWith(address: address, presetLabel: presetLabel);
 
-    if (autoConnect) {
+    if (autoConnect && address.isNotEmpty) {
       // 상태 안정화 대기
       await Future.delayed(const Duration(milliseconds: 100));
       await connect();
@@ -72,6 +74,17 @@ class CameraViewModel extends _$CameraViewModel {
   /// 카메라 연결
   Future<void> connect() async {
     if (state.isConnected || state.isConnecting) return;
+    if (state.address.isEmpty) return;
+
+    // 혹시 남아있는 렌더러 정리
+    if (_renderer != null) {
+      try {
+        await _renderer!.stopStream();
+        await _renderer!.dispose();
+      } catch (_) {}
+      _renderer = null;
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
 
     state = state.copyWith(
       isConnecting: true,
@@ -83,8 +96,6 @@ class CameraViewModel extends _$CameraViewModel {
     _addLog('INFO', '연결 시작: ${state.address}');
 
     try {
-      final logger = ref.read(loggerProvider);
-
       // Create native renderer
       _renderer = NativeVideoRenderer();
 
