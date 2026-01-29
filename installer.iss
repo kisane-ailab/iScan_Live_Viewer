@@ -12,6 +12,10 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\iScan Live Viewer.exe
 SetupIconFile=windows\runner\resources\app_icon.ico
+DisableDirPage=no
+
+[Languages]
+Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
 
 [Files]
 Source: "build\windows\x64\runner\Release\iscan_live_viewer.exe"; DestDir: "{app}"; DestName: "iScan Live Viewer.exe"; Flags: ignoreversion
